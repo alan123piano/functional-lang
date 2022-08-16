@@ -1,0 +1,1 @@
+let f = fun x -> if x = 0 then 0 else f (x - 1) + 2 in f 2

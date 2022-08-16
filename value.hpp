@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <optional>
+#include "scope.hpp"
 #include "parser.hpp"
 
 class Value {
@@ -150,8 +151,9 @@ public:
 class VFun : public Value {
 public:
 	EFun* fun;
+	Scope scope;
 
-	VFun(EFun* fun) : fun(fun) {}
+	VFun(EFun* fun, Scope scope) : fun(fun), scope(scope) {}
 
 	void print(std::ostream& os) const override {
 		os << fun;

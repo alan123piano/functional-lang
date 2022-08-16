@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "scope.hpp"
 #include "value.hpp"
 #include "parser.hpp"
 #include "source.hpp"
@@ -18,23 +19,22 @@ public:
 			return new VBool(expr->as<EBoolLit>()->value);
 		} else if (expr->as<EIdent>()) {
 			EIdent* ident = expr->as<EIdent>();
-			std::vector<Value*>& bindings = scope[ident->value];
-			if (bindings.empty()) {
+			Value* value = scope.get(ident);
+			if (!value) {
 				source.report_error(
 				    expr->loc.line,
 				    expr->loc.colStart,
 				    0,
 				    "unbound variable '" + ident->value + "'");
 				return nullptr;
-			} else {
-				return bindings.back();
 			}
+			return value;
 		} else if (expr->as<ELet>()) {
 			ELet* letExpr = expr->as<ELet>();
-			std::vector<Value*>& bindings = scope[letExpr->ident->value];
-			bindings.push_back(eval(letExpr->value));
+			EIdent* ident = letExpr->ident;
+			scope.push(ident, eval(letExpr->value));
 			Value* value = eval(letExpr->body);
-			bindings.pop_back();
+			scope.pop(ident);
 			return value;
 		} else if (expr->as<EIf>()) {
 			EIf* ifExpr = expr->as<EIf>();
@@ -59,7 +59,7 @@ public:
 				return eval(ifExpr->elseBody);
 			}
 		} else if (expr->as<EFun>()) {
-			return new VFun(expr->as<EFun>());
+			return new VFun(expr->as<EFun>(), scope);
 		} else if (expr->as<EFix>()) {
 			// TODO
 		} else if (expr->as<EFunAp>()) {
@@ -81,10 +81,12 @@ public:
 			if (!right) {
 				return nullptr;
 			}
-			std::vector<Value*>& bindings = scope[fun->fun->ident->value];
-			bindings.push_back(right);
+			Scope currScope = scope;
+			scope = fun->scope;
+			scope.push(fun->fun->ident, right);
 			return eval(fun->fun->body);
-			bindings.pop_back();
+			scope.pop(fun->fun->ident);
+			scope = currScope;
 		} else if (expr->as<EUnaryOp>()) {
 			EUnaryOp* unaryOp = expr->as<EUnaryOp>();
 			Value* right = eval(unaryOp->right);
@@ -294,6 +296,5 @@ public:
 
 private:
 	const Source& source;
-	// scope supports shadowing (implemented using vectors)
-	std::unordered_map<std::string, std::vector<Value*>> scope;
+	Scope scope;
 };
