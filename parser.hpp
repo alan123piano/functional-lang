@@ -10,7 +10,10 @@
 
 class Expr {
 public:
-	Expr() {}
+	Location loc;
+
+	// AST locations always have length 0 (AST nodes can be multi-line)
+	Expr(const Location& loc) : loc({ loc.line, loc.colStart, loc.colStart }) {}
 	virtual ~Expr() {}
 	virtual void print(std::ostream& os) = 0;
 
@@ -28,7 +31,8 @@ class IntLit : public Expr {
 public:
 	std::string value;
 
-	IntLit(const std::string& value) : value(value) {}
+	IntLit(const Location& loc, const std::string& value)
+		: Expr(loc), value(value) {}
 
 	void print(std::ostream& os) override {
 		os << value;
@@ -39,7 +43,8 @@ class Ident : public Expr {
 public:
 	std::string value;
 
-	Ident(const std::string& value) : value(value) {}
+	Ident(const Location& loc, const std::string& value)
+		: Expr(loc), value(value) {}
 
 	void print(std::ostream& os) override {
 		os << value;
@@ -52,7 +57,8 @@ public:
 	Expr* value;
 	Expr* body;
 
-	LetExpr(Ident* ident, Expr* value, Expr* body) : ident(ident), value(value), body(body) {}
+	LetExpr(const Location& loc, Ident* ident, Expr* value, Expr* body)
+		: Expr(loc), ident(ident), value(value), body(body) {}
 
 	void print(std::ostream& os) override {
 		os << "let ";
@@ -71,7 +77,8 @@ public:
 	Expr* body;
 	Expr* elseBody;
 
-	IfExpr(Expr* test, Expr* body, Expr* elseBody) : test(test), body(body), elseBody(elseBody) {}
+	IfExpr(const Location& loc, Expr* test, Expr* body, Expr* elseBody)
+		: Expr(loc), test(test), body(body), elseBody(elseBody) {}
 
 	void print(std::ostream& os) override {
 		os << "if (";
@@ -89,7 +96,8 @@ public:
 	Ident* ident;
 	Expr* body;
 
-	FunExpr(Ident* ident, Expr* body) : ident(ident), body(body) {}
+	FunExpr(const Location& loc, Ident* ident, Expr* body)
+		: Expr(loc), ident(ident), body(body) {}
 
 	void print(std::ostream& os) override {
 		os << "fun ";
@@ -104,7 +112,8 @@ public:
 	Expr* fun;
 	Expr* arg;
 
-	FunAp(Expr* fun, Expr* arg) : fun(fun), arg(arg) {}
+	FunAp(const Location& loc, Expr* fun, Expr* arg)
+		: Expr(loc), fun(fun), arg(arg) {}
 
 	void print(std::ostream& os) override {
 		os << "(";
@@ -120,7 +129,8 @@ public:
 	Token op;
 	Expr* right;
 
-	UnaryOp(Token op, Expr* right) : op(op), right(right) {}
+	UnaryOp(const Location& loc, Token op, Expr* right)
+		: Expr(loc), op(op), right(right) {}
 
 	void print(std::ostream& os) override {
 		os << op << "(";
@@ -135,7 +145,8 @@ public:
 	Token op;
 	Expr* right;
 
-	BinOp(Expr* left, Token op, Expr* right) : left(left), op(op), right(right) {}
+	BinOp(const Location& loc, Expr* left, Token op, Expr* right)
+		: Expr(loc), left(left), op(op), right(right) {}
 
 	void print(std::ostream& os) override {
 		os << "(";
@@ -246,14 +257,14 @@ private:
 			if (!intLitToken) {
 				return nullptr;
 			}
-			lhs = new IntLit(intLitToken->value);
+			lhs = new IntLit(peek.loc, intLitToken->value);
 		} else if (peek.type == TokenType::Ident) {
 			// Ident
 			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
 			if (!identToken) {
 				return nullptr;
 			}
-			lhs = new Ident(identToken->value);
+			lhs = new Ident(peek.loc, identToken->value);
 		} else if (peek.type == TokenType::LeftParen) {
 			// '(' <Expr> ')'
 			expect_token(TokenType::LeftParen, reportErrors);
@@ -266,12 +277,12 @@ private:
 			if (!identToken) {
 				return nullptr;
 			}
-			Ident* ident = new Ident(identToken->value);
+			Ident* ident = new Ident(identToken->loc, identToken->value);
 			expect_token(TokenType::Equals, reportErrors);
 			Expr* value = parse_expr();
 			expect_token(TokenType::In, reportErrors);
 			Expr* body = parse_expr();
-			lhs = new LetExpr(ident, value, body);
+			lhs = new LetExpr(peek.loc, ident, value, body);
 		} else if (peek.type == TokenType::If) {
 			// <IfExpr>
 			expect_token(TokenType::If, reportErrors);
@@ -280,7 +291,7 @@ private:
 			Expr* body = parse_expr();
 			expect_token(TokenType::Else, reportErrors);
 			Expr* elseBody = parse_expr();
-			lhs = new IfExpr(test, body, elseBody);
+			lhs = new IfExpr(peek.loc, test, body, elseBody);
 		} else if (peek.type == TokenType::Fun) {
 			// <FunExpr>
 			expect_token(TokenType::Fun, reportErrors);
@@ -288,10 +299,10 @@ private:
 			if (!identToken) {
 				return nullptr;
 			}
-			Ident* ident = new Ident(identToken->value);
+			Ident* ident = new Ident(identToken->loc, identToken->value);
 			expect_token(TokenType::Arrow, reportErrors);
 			Expr* body = parse_expr();
-			lhs = new FunExpr(ident, body);
+			lhs = new FunExpr(peek.loc, ident, body);
 		} else if (peek.type == TokenType::Plus) {
 			// '+' <Expr>
 			std::optional<Token> op = expect_token(TokenType::Plus, reportErrors);
@@ -299,7 +310,7 @@ private:
 				return nullptr;
 			}
 			Expr* right = parse_expr();
-			lhs = new UnaryOp(*op, right);
+			lhs = new UnaryOp(peek.loc, *op, right);
 		} else if (peek.type == TokenType::Minus) {
 			// '-' <Expr>
 			std::optional<Token> op = expect_token(TokenType::Minus, reportErrors);
@@ -307,7 +318,7 @@ private:
 				return nullptr;
 			}
 			Expr* right = parse_expr();
-			lhs = new UnaryOp(*op, right);
+			lhs = new UnaryOp(peek.loc, *op, right);
 		} else if (peek.type == TokenType::Not) {
 			// '!' <Expr>
 			std::optional<Token> op = expect_token(TokenType::Not, reportErrors);
@@ -315,7 +326,7 @@ private:
 				return nullptr;
 			}
 			Expr* right = parse_expr();
-			lhs = new UnaryOp(*op, right);
+			lhs = new UnaryOp(peek.loc, *op, right);
 		} else {
 			// unexpected token
 			if (reportErrors) {
@@ -361,7 +372,7 @@ private:
 				if (!rhs) {
 					break;
 				}
-				lhs = new BinOp(lhs, peek, rhs);
+				lhs = new BinOp(lhs->loc, lhs, peek, rhs);
 				break;
 			}
 			if (!matched) {
@@ -380,7 +391,7 @@ private:
 			if (!rhs) {
 				break;
 			}
-			lhs = new FunAp(lhs, rhs);
+			lhs = new FunAp(lhs->loc, lhs, rhs);
 		}
 		return lhs;
 	}

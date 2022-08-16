@@ -27,8 +27,12 @@ int main(int argc, char* argv[]) {
 	Lexer lexer(source);
 	std::deque<Token> tokens = lexer.get_tokens();
 	Parser parser(source, std::move(tokens));
-	parser.parse()->print(std::cout);
-	std::cout << std::endl;
-
-	source.emit_errors(std::cout);
+	Expr* ast = parser.parse();
+	if (source.has_errors()) {
+		source.emit_errors(std::cout);
+		return 1;
+	} else {
+		ast->print(std::cout);
+		std::cout << std::endl;
+	}
 }

@@ -31,6 +31,10 @@ public:
 		}
 	}
 
+	bool has_errors() {
+		return !errors.empty();
+	}
+
 	void report_error(int line, int col, int len, const std::string& error) const {
 		errors.push_back({line, col, len, error});
 	}
@@ -60,7 +64,6 @@ public:
 		// emit errors
 		for (const Error& error : errors) {
 			if (error.line >= lines.size()) {
-				os << error.line << " " << error.col << " " << error.len << " " << error.error << std::endl;
 				throw std::runtime_error("Invalid position: line=" + std::to_string(error.line));
 			}
 			if (filepath != "") {

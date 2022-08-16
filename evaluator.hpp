@@ -2,6 +2,6 @@
 
 #include "parser.hpp"
 
-class Interpreter {
+class Evaluator {
 
 };
