@@ -190,7 +190,7 @@ public:
 	Parser(const File& file, std::deque<Token> tokens) : file(file), tokens(std::move(tokens)) {}
 
 	Expr* parse() {
-		Expr* expr = parse_expr(0);
+		Expr* expr = parse_expr();
 		expect_token(TokenType::Eof, false);
 		return expr;
 	}
@@ -198,10 +198,51 @@ private:
 	const File& file;
 	std::deque<Token> tokens;
 
+	struct BindingPower {
+		// for left-associative, left < right
+		// for right-associative, right < left
+		int left;
+		int right;
+
+		static BindingPower FunAp() {
+			return {60, 61};
+		}
+
+		static BindingPower BinOp(const Token& op) {
+			switch (op.type) {
+			case TokenType::Mul:
+			case TokenType::Div:
+			case TokenType::Mod:
+				return {50, 51};
+				break;
+			case TokenType::Plus:
+			case TokenType::Minus:
+				return {40, 41};
+				break;
+			case TokenType::Equals:
+			case TokenType::NotEquals:
+			case TokenType::Lt:
+			case TokenType::Gt:
+			case TokenType::Leq:
+			case TokenType::Geq:
+				return {30, 31};
+				break;
+			case TokenType::And:
+				return {21, 20};
+				break;
+			case TokenType::Or:
+				return {11, 10};
+				break;
+			default:
+				throw std::runtime_error("Unrecognized infix operator: " + std::to_string((int)op.type));
+			}
+		}
+	};
+
 	// Helpers
-	std::optional<Token> expect_token(TokenType tokenType, bool reportError = true) {
+	std::optional<Token> expect_token(TokenType tokenType, bool reportErrors = true) {
 		if (tokens.empty()) {
-			if (reportError) {
+			if (reportErrors) {
 				std::ostringstream oss;
 				oss << "expected token '" << tokenType << "' before eof";
 				file.report_error_at_eof(oss.str());
@@ -210,7 +251,7 @@ private:
 		} else {
 			Token front = tokens.front();
 			if (front.type != tokenType) {
-				if (reportError) {
+				if (reportErrors) {
 					std::ostringstream oss;
 					oss << "expected token '" << tokenType << "'; got '" << front << "'";
 					file.report_error(
@@ -219,7 +260,6 @@ private:
 					    front.loc.colEnd - front.loc.colStart,
 					    oss.str());
 				}
-				tokens.pop_front();
 				return std::nullopt;
 			} else {
 				tokens.pop_front();
@@ -230,105 +270,157 @@ private:
 
 	// Non-terminals
 	// <Expr>
-	Expr* parse_expr(int bindingPower) {
+	Expr* parse_expr(int minBindingPower = 0, bool reportErrors = true) {
 		if (tokens.empty()) {
-			file.report_error_at_eof("unexpected end of token stream");
+			if (reportErrors) {
+				file.report_error_at_eof("unexpected end of token stream");
+			}
 			return nullptr;
 		}
 		Token peek = tokens.front();
-		Expr* lhs;
+		Expr* lhs = nullptr;
 		if (peek.type == TokenType::IntLit) {
 			// IntLit
-			std::optional<Token> intLitToken = expect_token(TokenType::IntLit);
+			std::optional<Token> intLitToken = expect_token(TokenType::IntLit, reportErrors);
 			if (!intLitToken) {
 				return nullptr;
 			}
 			lhs = new IntLit(intLitToken->value);
 		} else if (peek.type == TokenType::Ident) {
 			// Ident
-			std::optional<Token> identToken = expect_token(TokenType::Ident);
+			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
 			if (!identToken) {
 				return nullptr;
 			}
 			lhs = new Ident(identToken->value);
 		} else if (peek.type == TokenType::LeftParen) {
 			// '(' <Expr> ')'
-			expect_token(TokenType::LeftParen);
-			lhs = parse_expr(0);
-			expect_token(TokenType::RightParen);
+			expect_token(TokenType::LeftParen, reportErrors);
+			lhs = parse_expr();
+			expect_token(TokenType::RightParen, reportErrors);
 		} else if (peek.type == TokenType::Let) {
 			// <LetExpr>
-			expect_token(TokenType::Let);
-			std::optional<Token> identToken = expect_token(TokenType::Ident);
+			expect_token(TokenType::Let, reportErrors);
+			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
 			if (!identToken) {
 				return nullptr;
 			}
 			Ident* ident = new Ident(identToken->value);
-			expect_token(TokenType::Equals);
-			Expr* value = parse_expr(0);
-			expect_token(TokenType::In);
-			Expr* body = parse_expr(0);
+			expect_token(TokenType::Equals, reportErrors);
+			Expr* value = parse_expr();
+			expect_token(TokenType::In, reportErrors);
+			Expr* body = parse_expr();
 			lhs = new LetExpr(ident, value, body);
 		} else if (peek.type == TokenType::If) {
 			// <IfExpr>
-			expect_token(TokenType::If);
-			Expr* test = parse_expr(0);
-			expect_token(TokenType::Then);
-			Expr* body = parse_expr(0);
-			expect_token(TokenType::Else);
-			Expr* elseBody = parse_expr(0);
+			expect_token(TokenType::If, reportErrors);
+			Expr* test = parse_expr();
+			expect_token(TokenType::Then, reportErrors);
+			Expr* body = parse_expr();
+			expect_token(TokenType::Else, reportErrors);
+			Expr* elseBody = parse_expr();
 			lhs = new IfExpr(test, body, elseBody);
 		} else if (peek.type == TokenType::Fun) {
 			// <FunExpr>
-			expect_token(TokenType::Fun);
-			std::optional<Token> identToken = expect_token(TokenType::Ident);
+			expect_token(TokenType::Fun, reportErrors);
+			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
 			if (!identToken) {
 				return nullptr;
 			}
 			Ident* ident = new Ident(identToken->value);
-			expect_token(TokenType::Arrow);
-			Expr* body = parse_expr(0);
+			expect_token(TokenType::Arrow, reportErrors);
+			Expr* body = parse_expr();
 			lhs = new FunExpr(ident, body);
 		} else if (peek.type == TokenType::Plus) {
 			// '+' <Expr>
-			std::optional<Token> op = expect_token(TokenType::Plus);
+			std::optional<Token> op = expect_token(TokenType::Plus, reportErrors);
 			if (!op) {
 				return nullptr;
 			}
-			Expr* right = parse_expr(0);
+			Expr* right = parse_expr();
 			lhs = new UnaryOp(*op, right);
 		} else if (peek.type == TokenType::Minus) {
 			// '-' <Expr>
-			std::optional<Token> op = expect_token(TokenType::Minus);
+			std::optional<Token> op = expect_token(TokenType::Minus, reportErrors);
 			if (!op) {
 				return nullptr;
 			}
-			Expr* right = parse_expr(0);
+			Expr* right = parse_expr();
 			lhs = new UnaryOp(*op, right);
 		} else if (peek.type == TokenType::Not) {
 			// '!' <Expr>
-			std::optional<Token> op = expect_token(TokenType::Not);
+			std::optional<Token> op = expect_token(TokenType::Not, reportErrors);
 			if (!op) {
 				return nullptr;
 			}
-			Expr* right = parse_expr(0);
+			Expr* right = parse_expr();
 			lhs = new UnaryOp(*op, right);
 		} else {
 			// unexpected token
-			std::ostringstream oss;
-			oss << "unexpected token '" << peek.type << "'";
-			file.report_error(
-			    peek.loc.line,
-			    peek.loc.colStart,
-			    peek.loc.colEnd - peek.loc.colStart,
-			    oss.str());
-			tokens.pop_front();
+			if (reportErrors) {
+				std::ostringstream oss;
+				oss << "unexpected token '" << peek.type << "'";
+				file.report_error(
+				    peek.loc.line,
+				    peek.loc.colStart,
+				    peek.loc.colEnd - peek.loc.colStart,
+				    oss.str());
+			}
 			return nullptr;
 		}
 		// handle recursive cases with Pratt parsing
-		peek = tokens.front();
 		// handle <BinOp>
+		while (true) {
+			if (tokens.empty()) {
+				break;
+			}
+			peek = tokens.front();
+			bool matched = false;
+			switch (peek.type) {
+			case TokenType::Mul:
+			case TokenType::Div:
+			case TokenType::Mod:
+			case TokenType::Plus:
+			case TokenType::Minus:
+			case TokenType::Equals:
+			case TokenType::NotEquals:
+			case TokenType::Lt:
+			case TokenType::Gt:
+			case TokenType::Leq:
+			case TokenType::Geq:
+			case TokenType::And:
+			case TokenType::Or:
+				BindingPower bindingPower = BindingPower::BinOp(peek);
+				if (bindingPower.left < minBindingPower) {
+					break;
+				}
+				matched = true;
+				tokens.pop_front();
+				Expr* rhs = parse_expr(bindingPower.right);
+				if (!rhs) {
+					break;
+				}
+				lhs = new BinOp(lhs, peek, rhs);
+				break;
+			}
+			if (!matched) {
+				break;
+			}
+		}
 		// handle <FunAp>
+		while (true) {
+			BindingPower bindingPower = BindingPower::FunAp();
+			if (bindingPower.left < minBindingPower) {
+				break;
+			}
+			// it's a little hacky to call parse_expr to check if we can create a FunAp..
+			// this trick relies on parse_expr not chomping tokens if it returns a nullptr
+			Expr* rhs = parse_expr(bindingPower.right, false);
+			if (!rhs) {
+				break;
+			}
+			lhs = new FunAp(lhs, rhs);
+		}
 		return lhs;
 	}
 };

@@ -13,6 +13,12 @@ private:
 		int col;
 		int len;
 		std::string error;
+		bool operator==(const Error& other) {
+			return line == other.line
+			       && col == other.col
+			       && len == other.len
+			       && error == other.error;
+		}
 	};
 
 public:
@@ -34,15 +40,24 @@ public:
 	}
 
 	void emit_errors(std::ostream& os) const {
+		// sort errors
 		std::sort(errors.begin(), errors.end(), [](const Error& a, const Error& b) -> bool {
 			if (a.line == b.line) {
 				if (a.col == b.col) {
+					if (a.len == b.len) {
+						return a.error < b.error;
+					}
 					return a.len < b.len;
 				}
 				return a.col < b.col;
 			}
 			return a.line < b.line;
 		});
+
+		// remove duplicates
+		errors.erase(std::unique(errors.begin(), errors.end()), errors.end());
+
+		// emit errors
 		for (const Error& error : errors) {
 			if (error.line >= lines.size()) {
 				os << error.line << " " << error.col << " " << error.len << " " << error.error << std::endl;
