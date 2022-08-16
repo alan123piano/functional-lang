@@ -33,8 +33,20 @@ int main(int argc, char* argv[]) {
 		source.emit_errors(std::cout);
 		return 1;
 	} else {
-		Evaluator eval(ast);
-		std::cout << eval.value() << std::endl;
-		return 0;
+		if (!ast) {
+			throw std::runtime_error("Received invalid AST without emitting errors");
+		}
+		Evaluator evaluator(source);
+		Value* value = evaluator.eval(ast);
+		if (source.has_errors()) {
+			source.emit_errors(std::cout);
+			return 1;
+		} else {
+			if (!value) {
+				throw std::runtime_error("Received invalid value without emitting errors");
+			}
+			std::cout << value << std::endl;
+			return 0;
+		}
 	}
 }

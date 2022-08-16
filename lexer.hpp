@@ -10,11 +10,10 @@
 
 enum class TokenType {
 	Error, Eof,
-	Ident, IntLit,
-	Let, In, If, Then, Else, Fun,
+	Ident, IntLit, True, False,
+	Let, In, If, Then, Else, Fun, Fix,
 	Equals, NotEquals, Not,
-	Lt, Gt, Leq, Geq,
-	And, Or,
+	Lt, Gt, Leq, Geq, And, Or,
 	Plus, Minus, Mul, Div, Mod,
 	LeftParen, RightParen, Arrow
 };
@@ -95,6 +94,10 @@ private:
 			return { {line, colStart, col}, TokenType::LeftParen, "" };
 		} else if (try_consume(")")) {
 			return { {line, colStart, col}, TokenType::RightParen, "" };
+		} else if (try_consume("true")) {
+			return { {line, colStart, col}, TokenType::True, "" };
+		} else if (try_consume("false")) {
+			return { {line, colStart, col}, TokenType::False, "" };
 		} else if (try_consume("let")) {
 			return { {line, colStart, col}, TokenType::Let, "" };
 		} else if (try_consume("in")) {
@@ -107,6 +110,8 @@ private:
 			return { {line, colStart, col}, TokenType::Else, "" };
 		} else if (try_consume("fun")) {
 			return { {line, colStart, col}, TokenType::Fun, "" };
+		} else if (try_consume("fix")) {
+			return { {line, colStart, col}, TokenType::Fix, "" };
 		} else {
 			char c = get_char();
 			if ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_') {
@@ -208,6 +213,12 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 	case TokenType::IntLit:
 		os << "num_lit";
 		break;
+	case TokenType::True:
+		os << "true";
+		break;
+	case TokenType::False:
+		os << "false";
+		break;
 	case TokenType::Let:
 		os << "let";
 		break;
@@ -225,6 +236,9 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::Fun:
 		os << "fun";
+		break;
+	case TokenType::Fix:
+		os << "fix";
 		break;
 	case TokenType::Equals:
 		os << "=";

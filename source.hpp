@@ -24,7 +24,7 @@ private:
 public:
 	std::vector<std::string> lines;
 
-	Source(std::istream& is, const std::string& filepath = "") : filepath(filepath) {
+	Source(std::istream& is, std::string filepath = "") : filepath(std::move(filepath)) {
 		std::string line;
 		while (std::getline(is, line)) {
 			lines.push_back(std::move(line));
@@ -35,12 +35,12 @@ public:
 		return !errors.empty();
 	}
 
-	void report_error(int line, int col, int len, const std::string& error) const {
-		errors.push_back({line, col, len, error});
+	void report_error(int line, int col, int len, std::string error) const {
+		errors.push_back({line, col, len, std::move(error)});
 	}
 
-	void report_error_at_eof(const std::string& error) const {
-		errors.push_back({(int)lines.size()-1, (int)lines[lines.size()-1].size(), 1, error});
+	void report_error_at_eof(std::string error) const {
+		errors.push_back({(int)lines.size()-1, (int)lines[lines.size()-1].size(), 1, std::move(error)});
 	}
 
 	void emit_errors(std::ostream& os) const {
@@ -70,11 +70,18 @@ public:
 				os << filepath << ":";
 			}
 			os << (error.line + 1) << ":" << error.col << ": error: " << error.error << '\n';
-			os << " " << lines[error.line] << '\n';
-			os << " " << std::string(error.col, ' ') << "^";
+
+			// print source in output stream
+			std::string line = lstrip(lines[error.line]);
+			int wspaceDiff = (int)lines[error.line].size() - (int)line.size();
+			os << left_pad(std::to_string(error.line + 1), 5)
+			   << " |  " << line << '\n';
+			os << std::string(5, ' ')
+			   << " |  " << std::string(error.col - wspaceDiff, ' ') << "^";
 			if (error.len > 1) {
 				os << std::string(error.len - 1, '~');
 			}
+
 			os << std::endl;
 		}
 	}
@@ -82,4 +89,17 @@ public:
 private:
 	mutable std::vector<Error> errors;
 	std::string filepath;
+
+	static std::string left_pad(const std::string& str, int len, char pad = ' ') {
+		return std::string(std::max(0, len - (int)str.size()), pad) + str;
+	}
+
+	static std::string lstrip(const std::string& str) {
+		// strip leading whitespace
+		int i = 0;
+		while (i < str.size() && isspace(str[i])) {
+			++i;
+		}
+		return str.substr(i);
+	}
 };

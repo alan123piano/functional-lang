@@ -15,7 +15,12 @@ public:
 	// AST locations always have length 0 (AST nodes can be multi-line)
 	Expr(const Location& loc) : loc({ loc.line, loc.colStart, loc.colStart }) {}
 	virtual ~Expr() {}
-	virtual void print(std::ostream& os) = 0;
+	virtual void print(std::ostream& os) const = 0;
+
+	template <typename T>
+	T* as() {
+		return dynamic_cast<T*>(this);
+	}
 
 protected:
 	static void try_print(std::ostream& os, Expr* expr) {
@@ -29,16 +34,25 @@ protected:
 
 class EIntLit : public Expr {
 public:
-	// store IntLit value as string to support arbitrarily long ints
-	// (ints will be limited in practice, but we don't want to add that
-	//  constraint at the parser level)
-	std::string value;
+	long long value;
 
-	EIntLit(const Location& loc, const std::string& value)
+	EIntLit(const Location& loc, long long value)
 		: Expr(loc), value(value) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << value;
+	}
+};
+
+class EBoolLit : public Expr {
+public:
+	bool value;
+
+	EBoolLit(const Location& loc, bool value)
+		: Expr(loc), value(value) {}
+
+	void print(std::ostream& os) const override {
+		os << (value ? "true" : "false");
 	}
 };
 
@@ -46,10 +60,10 @@ class EIdent : public Expr {
 public:
 	std::string value;
 
-	EIdent(const Location& loc, const std::string& value)
-		: Expr(loc), value(value) {}
+	EIdent(const Location& loc, std::string value)
+		: Expr(loc), value(std::move(value)) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << value;
 	}
 };
@@ -63,7 +77,7 @@ public:
 	ELet(const Location& loc, EIdent* ident, Expr* value, Expr* body)
 		: Expr(loc), ident(ident), value(value), body(body) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << "let ";
 		try_print(os, ident);
 		os << " = (";
@@ -83,7 +97,7 @@ public:
 	EIf(const Location& loc, Expr* test, Expr* body, Expr* elseBody)
 		: Expr(loc), test(test), body(body), elseBody(elseBody) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << "if (";
 		try_print(os, test);
 		os << ") then (";
@@ -102,8 +116,24 @@ public:
 	EFun(const Location& loc, EIdent* ident, Expr* body)
 		: Expr(loc), ident(ident), body(body) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << "fun ";
+		try_print(os, ident);
+		os << " -> ";
+		try_print(os, body);
+	}
+};
+
+class EFix : public Expr {
+public:
+	EIdent* ident;
+	Expr* body;
+
+	EFix(const Location& loc, EIdent* ident, Expr* body)
+		: Expr(loc), ident(ident), body(body) {}
+
+	void print(std::ostream& os) const override {
+		os << "fix ";
 		try_print(os, ident);
 		os << " -> ";
 		try_print(os, body);
@@ -118,7 +148,7 @@ public:
 	EFunAp(const Location& loc, Expr* fun, Expr* arg)
 		: Expr(loc), fun(fun), arg(arg) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << "(";
 		try_print(os, fun);
 		os << ") (";
@@ -135,7 +165,7 @@ public:
 	EUnaryOp(const Location& loc, Token op, Expr* right)
 		: Expr(loc), op(op), right(right) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << op << "(";
 		try_print(os, right);
 		os << ")";
@@ -151,7 +181,7 @@ public:
 	EBinOp(const Location& loc, Expr* left, Token op, Expr* right)
 		: Expr(loc), left(left), op(op), right(right) {}
 
-	void print(std::ostream& os) override {
+	void print(std::ostream& os) const override {
 		os << "(";
 		try_print(os, left);
 		os << ") " << op << " (";
@@ -256,18 +286,33 @@ private:
 		Expr* lhs = nullptr;
 		if (peek.type == TokenType::IntLit) {
 			// IntLit
-			std::optional<Token> intLitToken = expect_token(TokenType::IntLit, reportErrors);
-			if (!intLitToken) {
+			expect_token(TokenType::IntLit, reportErrors);
+			long long value;
+			try {
+				value = std::stoll(peek.value);
+			} catch (std::exception&) {
+				if (reportErrors) {
+					source.report_error(
+					    peek.loc.line,
+					    peek.loc.colStart,
+					    peek.loc.colEnd - peek.loc.colStart,
+					    "");
+				}
 				return nullptr;
 			}
-			lhs = new EIntLit(peek.loc, intLitToken->value);
+			lhs = new EIntLit(peek.loc, value);
+		} else if (peek.type == TokenType::True) {
+			// BoolLit(true)
+			expect_token(TokenType::True, reportErrors);
+			lhs = new EBoolLit(peek.loc, true);
+		} else if (peek.type == TokenType::False) {
+			// BoolLit(false)
+			expect_token(TokenType::False, reportErrors);
+			lhs = new EBoolLit(peek.loc, false);
 		} else if (peek.type == TokenType::Ident) {
 			// Ident
-			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
-			if (!identToken) {
-				return nullptr;
-			}
-			lhs = new EIdent(peek.loc, identToken->value);
+			expect_token(TokenType::Ident, reportErrors);
+			lhs = new EIdent(peek.loc, peek.value);
 		} else if (peek.type == TokenType::LeftParen) {
 			// '(' <Expr> ')'
 			expect_token(TokenType::LeftParen, reportErrors);
@@ -306,30 +351,27 @@ private:
 			expect_token(TokenType::Arrow, reportErrors);
 			Expr* body = parse_expr();
 			lhs = new EFun(peek.loc, ident, body);
-		} else if (peek.type == TokenType::Plus) {
-			// '+' <Expr>
-			std::optional<Token> op = expect_token(TokenType::Plus, reportErrors);
-			if (!op) {
+		} else if (peek.type == TokenType::Fix) {
+			// <EFix>
+			expect_token(TokenType::Fix, reportErrors);
+			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
+			if (!identToken) {
 				return nullptr;
 			}
-			Expr* right = parse_expr();
-			lhs = new EUnaryOp(peek.loc, *op, right);
+			EIdent* ident = new EIdent(identToken->loc, identToken->value);
+			expect_token(TokenType::Arrow, reportErrors);
+			Expr* body = parse_expr();
+			lhs = new EFix(peek.loc, ident, body);
 		} else if (peek.type == TokenType::Minus) {
 			// '-' <Expr>
-			std::optional<Token> op = expect_token(TokenType::Minus, reportErrors);
-			if (!op) {
-				return nullptr;
-			}
+			expect_token(TokenType::Minus, reportErrors);
 			Expr* right = parse_expr();
-			lhs = new EUnaryOp(peek.loc, *op, right);
+			lhs = new EUnaryOp(peek.loc, peek, right);
 		} else if (peek.type == TokenType::Not) {
 			// '!' <Expr>
-			std::optional<Token> op = expect_token(TokenType::Not, reportErrors);
-			if (!op) {
-				return nullptr;
-			}
+			expect_token(TokenType::Not, reportErrors);
 			Expr* right = parse_expr();
-			lhs = new EUnaryOp(peek.loc, *op, right);
+			lhs = new EUnaryOp(peek.loc, peek, right);
 		} else {
 			// unexpected token
 			if (reportErrors) {
@@ -399,3 +441,8 @@ private:
 		return lhs;
 	}
 };
+
+std::ostream& operator<<(std::ostream& os, const Expr* expr) {
+	expr->print(os);
+	return os;
+}

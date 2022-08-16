@@ -1,1 +1,1 @@
-let fn = fun x -> if !1 then x else +2 in (((fn)
+1 + 2 * 3
