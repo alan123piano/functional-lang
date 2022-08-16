@@ -12,41 +12,41 @@ Arithmetic Language is a minimal, Turing-complete functional language.
 
 ### Productions
 ```
-<Expr> ::= <LetExpr>
-         | <IfExpr>
-         | <FunExpr>
-         | <FunAp>
-         | <UnaryOp>
-         | <BinOp>
+<Expr> ::= <ELet>
+         | <EIf>
+         | <EFun>
+         | <EFunAp>
+         | <EUnaryOp>
+         | <EBinOp>
          | IntLit
          | Ident
          | '(' <Expr> ')'
 
-<LetExpr> ::= 'let' Ident '=' <Expr> 'in' <Expr>
+<ELet> ::= 'let' Ident '=' <Expr> 'in' <Expr>
 
-<IfExpr> ::= 'if' <Expr> 'then' <Expr> 'else' <Expr>
+<EIf> ::= 'if' <Expr> 'then' <Expr> 'else' <Expr>
 
-<FunExpr> ::= 'fun' Ident '->' <Expr>
+<EFun> ::= 'fun' Ident '->' <Expr>
 
-<FunAp> ::= <Expr> <Expr>
+<EFunAp> ::= <Expr> <Expr>
 
-<UnaryOp> ::= '+' <Expr>
-            | '-' <Expr>
-            | '!' <Expr>
+<EUnaryOp> ::= '+' <Expr>
+             | '-' <Expr>
+             | '!' <Expr>
 
-<BinOp> ::= <Expr> '=' <Expr>
-          | <Expr> '!=' <Expr>
-          | <Expr> '<' <Expr>
-          | <Expr> '>' <Expr>
-          | <Expr> '<=' <Expr>
-          | <Expr> '>=' <Expr>
-          | <Expr> '&&' <Expr>
-          | <Expr> '||' <Expr>
-          | <Expr> '+' <Expr>
-          | <Expr> '-' <Expr>
-          | <Expr> '*' <Expr>
-          | <Expr> '/' <Expr>
-          | <Expr> '%' <Expr>
+<EBinOp> ::= <Expr> '=' <Expr>
+           | <Expr> '!=' <Expr>
+           | <Expr> '<' <Expr>
+           | <Expr> '>' <Expr>
+           | <Expr> '<=' <Expr>
+           | <Expr> '>=' <Expr>
+           | <Expr> '&&' <Expr>
+           | <Expr> '||' <Expr>
+           | <Expr> '+' <Expr>
+           | <Expr> '-' <Expr>
+           | <Expr> '*' <Expr>
+           | <Expr> '/' <Expr>
+           | <Expr> '%' <Expr>
 
 ```
 

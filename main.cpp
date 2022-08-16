@@ -6,6 +6,7 @@
 #include "lexer.hpp"
 #include "parser.hpp"
 #include "source.hpp"
+#include "evaluator.hpp"
 
 int main(int argc, char* argv[]) {
 	if (argc != 2) {
@@ -32,7 +33,8 @@ int main(int argc, char* argv[]) {
 		source.emit_errors(std::cout);
 		return 1;
 	} else {
-		ast->print(std::cout);
-		std::cout << std::endl;
+		Evaluator eval(ast);
+		std::cout << eval.value() << std::endl;
+		return 0;
 	}
 }

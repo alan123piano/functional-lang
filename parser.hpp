@@ -18,7 +18,7 @@ public:
 	virtual void print(std::ostream& os) = 0;
 
 protected:
-	void try_print(std::ostream& os, Expr* expr) {
+	static void try_print(std::ostream& os, Expr* expr) {
 		if (expr) {
 			expr->print(os);
 		} else {
@@ -27,11 +27,14 @@ protected:
 	}
 };
 
-class IntLit : public Expr {
+class EIntLit : public Expr {
 public:
+	// store IntLit value as string to support arbitrarily long ints
+	// (ints will be limited in practice, but we don't want to add that
+	//  constraint at the parser level)
 	std::string value;
 
-	IntLit(const Location& loc, const std::string& value)
+	EIntLit(const Location& loc, const std::string& value)
 		: Expr(loc), value(value) {}
 
 	void print(std::ostream& os) override {
@@ -39,11 +42,11 @@ public:
 	}
 };
 
-class Ident : public Expr {
+class EIdent : public Expr {
 public:
 	std::string value;
 
-	Ident(const Location& loc, const std::string& value)
+	EIdent(const Location& loc, const std::string& value)
 		: Expr(loc), value(value) {}
 
 	void print(std::ostream& os) override {
@@ -51,13 +54,13 @@ public:
 	}
 };
 
-class LetExpr : public Expr {
+class ELet : public Expr {
 public:
-	Ident* ident;
+	EIdent* ident;
 	Expr* value;
 	Expr* body;
 
-	LetExpr(const Location& loc, Ident* ident, Expr* value, Expr* body)
+	ELet(const Location& loc, EIdent* ident, Expr* value, Expr* body)
 		: Expr(loc), ident(ident), value(value), body(body) {}
 
 	void print(std::ostream& os) override {
@@ -71,13 +74,13 @@ public:
 	}
 };
 
-class IfExpr : public Expr {
+class EIf : public Expr {
 public:
 	Expr* test;
 	Expr* body;
 	Expr* elseBody;
 
-	IfExpr(const Location& loc, Expr* test, Expr* body, Expr* elseBody)
+	EIf(const Location& loc, Expr* test, Expr* body, Expr* elseBody)
 		: Expr(loc), test(test), body(body), elseBody(elseBody) {}
 
 	void print(std::ostream& os) override {
@@ -91,12 +94,12 @@ public:
 	}
 };
 
-class FunExpr : public Expr {
+class EFun : public Expr {
 public:
-	Ident* ident;
+	EIdent* ident;
 	Expr* body;
 
-	FunExpr(const Location& loc, Ident* ident, Expr* body)
+	EFun(const Location& loc, EIdent* ident, Expr* body)
 		: Expr(loc), ident(ident), body(body) {}
 
 	void print(std::ostream& os) override {
@@ -107,12 +110,12 @@ public:
 	}
 };
 
-class FunAp : public Expr {
+class EFunAp : public Expr {
 public:
 	Expr* fun;
 	Expr* arg;
 
-	FunAp(const Location& loc, Expr* fun, Expr* arg)
+	EFunAp(const Location& loc, Expr* fun, Expr* arg)
 		: Expr(loc), fun(fun), arg(arg) {}
 
 	void print(std::ostream& os) override {
@@ -124,12 +127,12 @@ public:
 	}
 };
 
-class UnaryOp : public Expr {
+class EUnaryOp : public Expr {
 public:
 	Token op;
 	Expr* right;
 
-	UnaryOp(const Location& loc, Token op, Expr* right)
+	EUnaryOp(const Location& loc, Token op, Expr* right)
 		: Expr(loc), op(op), right(right) {}
 
 	void print(std::ostream& os) override {
@@ -139,13 +142,13 @@ public:
 	}
 };
 
-class BinOp : public Expr {
+class EBinOp : public Expr {
 public:
 	Expr* left;
 	Token op;
 	Expr* right;
 
-	BinOp(const Location& loc, Expr* left, Token op, Expr* right)
+	EBinOp(const Location& loc, Expr* left, Token op, Expr* right)
 		: Expr(loc), left(left), op(op), right(right) {}
 
 	void print(std::ostream& os) override {
@@ -257,52 +260,52 @@ private:
 			if (!intLitToken) {
 				return nullptr;
 			}
-			lhs = new IntLit(peek.loc, intLitToken->value);
+			lhs = new EIntLit(peek.loc, intLitToken->value);
 		} else if (peek.type == TokenType::Ident) {
 			// Ident
 			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
 			if (!identToken) {
 				return nullptr;
 			}
-			lhs = new Ident(peek.loc, identToken->value);
+			lhs = new EIdent(peek.loc, identToken->value);
 		} else if (peek.type == TokenType::LeftParen) {
 			// '(' <Expr> ')'
 			expect_token(TokenType::LeftParen, reportErrors);
 			lhs = parse_expr();
 			expect_token(TokenType::RightParen, reportErrors);
 		} else if (peek.type == TokenType::Let) {
-			// <LetExpr>
+			// <ELet>
 			expect_token(TokenType::Let, reportErrors);
 			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
 			if (!identToken) {
 				return nullptr;
 			}
-			Ident* ident = new Ident(identToken->loc, identToken->value);
+			EIdent* ident = new EIdent(identToken->loc, identToken->value);
 			expect_token(TokenType::Equals, reportErrors);
 			Expr* value = parse_expr();
 			expect_token(TokenType::In, reportErrors);
 			Expr* body = parse_expr();
-			lhs = new LetExpr(peek.loc, ident, value, body);
+			lhs = new ELet(peek.loc, ident, value, body);
 		} else if (peek.type == TokenType::If) {
-			// <IfExpr>
+			// <EIf>
 			expect_token(TokenType::If, reportErrors);
 			Expr* test = parse_expr();
 			expect_token(TokenType::Then, reportErrors);
 			Expr* body = parse_expr();
 			expect_token(TokenType::Else, reportErrors);
 			Expr* elseBody = parse_expr();
-			lhs = new IfExpr(peek.loc, test, body, elseBody);
+			lhs = new EIf(peek.loc, test, body, elseBody);
 		} else if (peek.type == TokenType::Fun) {
-			// <FunExpr>
+			// <EFun>
 			expect_token(TokenType::Fun, reportErrors);
 			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
 			if (!identToken) {
 				return nullptr;
 			}
-			Ident* ident = new Ident(identToken->loc, identToken->value);
+			EIdent* ident = new EIdent(identToken->loc, identToken->value);
 			expect_token(TokenType::Arrow, reportErrors);
 			Expr* body = parse_expr();
-			lhs = new FunExpr(peek.loc, ident, body);
+			lhs = new EFun(peek.loc, ident, body);
 		} else if (peek.type == TokenType::Plus) {
 			// '+' <Expr>
 			std::optional<Token> op = expect_token(TokenType::Plus, reportErrors);
@@ -310,7 +313,7 @@ private:
 				return nullptr;
 			}
 			Expr* right = parse_expr();
-			lhs = new UnaryOp(peek.loc, *op, right);
+			lhs = new EUnaryOp(peek.loc, *op, right);
 		} else if (peek.type == TokenType::Minus) {
 			// '-' <Expr>
 			std::optional<Token> op = expect_token(TokenType::Minus, reportErrors);
@@ -318,7 +321,7 @@ private:
 				return nullptr;
 			}
 			Expr* right = parse_expr();
-			lhs = new UnaryOp(peek.loc, *op, right);
+			lhs = new EUnaryOp(peek.loc, *op, right);
 		} else if (peek.type == TokenType::Not) {
 			// '!' <Expr>
 			std::optional<Token> op = expect_token(TokenType::Not, reportErrors);
@@ -326,7 +329,7 @@ private:
 				return nullptr;
 			}
 			Expr* right = parse_expr();
-			lhs = new UnaryOp(peek.loc, *op, right);
+			lhs = new EUnaryOp(peek.loc, *op, right);
 		} else {
 			// unexpected token
 			if (reportErrors) {
@@ -341,7 +344,7 @@ private:
 			return nullptr;
 		}
 		// handle recursive cases with Pratt parsing
-		// handle <BinOp>
+		// handle <EBinOp>
 		while (true) {
 			if (tokens.empty()) {
 				break;
@@ -372,26 +375,26 @@ private:
 				if (!rhs) {
 					break;
 				}
-				lhs = new BinOp(lhs->loc, lhs, peek, rhs);
+				lhs = new EBinOp(lhs->loc, lhs, peek, rhs);
 				break;
 			}
 			if (!matched) {
 				break;
 			}
 		}
-		// handle <FunAp>
+		// handle <EFunAp>
 		while (true) {
 			BindingPower bindingPower = BindingPower::FunAp();
 			if (bindingPower.left < minBindingPower) {
 				break;
 			}
-			// it's a little hacky to call parse_expr to check if we can create a FunAp..
+			// it's a little hacky to call parse_expr to check if we can create a EFunAp..
 			// this trick relies on parse_expr not chomping tokens if it returns a nullptr
 			Expr* rhs = parse_expr(bindingPower.right, false);
 			if (!rhs) {
 				break;
 			}
-			lhs = new FunAp(lhs->loc, lhs, rhs);
+			lhs = new EFunAp(lhs->loc, lhs, rhs);
 		}
 		return lhs;
 	}
