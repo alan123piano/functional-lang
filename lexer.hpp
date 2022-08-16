@@ -5,23 +5,8 @@
 #include <string>
 #include <vector>
 #include <cstring>
-#include <iostream> // temp
-#include "file.hpp"
+#include "source.hpp"
 #include "location.hpp"
-
-/**
- * Identifiers
- * Literals
- * 	IntLit
- * Keywords
- * 	let, in, if, then, else, fun
- * Symbols
- * 	'=', '!=', '!', '<', '>', '<=', '>=', '+', '-', '*', '/', '%'
- * 	'(', ')', '->'
- * Comments should be discarded.
- * 	ex. (* I am a comment *)
- * TODO: support lists, ADTs (union/sum types)
- */
 
 enum class TokenType {
 	Error, Eof,
@@ -42,7 +27,7 @@ struct Token {
 
 class Lexer {
 public:
-	Lexer(const File& file) : file(file) {}
+	Lexer(const Source& source) : source(source) {}
 
 	std::deque<Token> get_tokens() {
 		if (lexed) {
@@ -55,20 +40,20 @@ public:
 		while (buf_valid()) {
 			tokens.push_back(next());
 		}
-		int lastLine = (int)file.lines.size()-1;
-		int lastLineCol = (int)file.lines[lastLine].size();
+		int lastLine = (int)source.lines.size()-1;
+		int lastLineCol = (int)source.lines[lastLine].size();
 		tokens.push_back({ {lastLine, lastLineCol, 0}, TokenType::Eof, "" });
 
 		// report errors for unterm comments
 		for (const Location& loc : commentStack) {
-			file.report_error(loc.line, loc.colStart, loc.colEnd - loc.colStart, "unterminated comment");
+			source.report_error(loc.line, loc.colStart, loc.colEnd - loc.colStart, "unterminated comment");
 		}
 
 		return tokens;
 	}
 
 private:
-	const File& file;
+	const Source& source;
 	bool lexed = false; // flag indicating whether lexing already occurred
 	int line = 0;
 	int col = 0;
@@ -149,20 +134,20 @@ private:
 		// unrecognized char
 		++col;
 		std::string unrecognizedChar = get_line().substr(colStart, 1);
-		file.report_error(line, colStart, col - colStart, "stray '" + unrecognizedChar + "' in program");
+		source.report_error(line, colStart, col - colStart, "stray '" + unrecognizedChar + "' in program");
 		return { {line, colStart, col}, TokenType::Error, unrecognizedChar };
 	}
 
 	// helpers
 	const std::string& get_line() {
-		return file.lines[line];
+		return source.lines[line];
 	}
 	char get_char() {
 		return get_line()[col];
 	}
 
 	bool buf_valid() {
-		while (line < file.lines.size()) {
+		while (line < source.lines.size()) {
 			if (col >= get_line().size()) {
 				++line;
 				col = 0;
@@ -178,7 +163,7 @@ private:
 			}
 			if (try_consume("*)")) {
 				if (commentStack.empty()) {
-					file.report_error(line, col-2, 2, "expected comment before '*)' token");
+					source.report_error(line, col-2, 2, "expected comment before '*)' token");
 					continue;
 				} else {
 					commentStack.pop_back();

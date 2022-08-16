@@ -4,48 +4,9 @@
 #include <sstream>
 #include <iostream>
 #include <optional>
-#include "file.hpp"
 #include "lexer.hpp"
+#include "source.hpp"
 #include "location.hpp"
-
-/**
- * <Expr> ::= <LetExpr>
- *          | <IfExpr>
- * 			| <FunExpr>
- *          | <FunAp>
- *          | <UnaryOp>
- *          | <BinOp>
- *          | IntLit
- * 			| Ident
- *          | '(' <Expr> ')'
- *
- * <LetExpr> ::= 'let' Ident '=' <Expr> 'in' <Expr>
- *
- * <IfExpr> ::= 'if' <Expr> 'then' <Expr> 'else' <Expr>
- *
- * <FunExpr> ::= 'fun' Ident '->' <Expr>
- *
- * <FunAp> ::= <Expr> <Expr>
- *
- * <UnaryOp> ::= '+' <Expr>
- * 			   | '-' <Expr>
- * 			   | '!' <Expr>
- *
- * <BinOp> ::= <Expr> '=' <Expr>
- * 			 | <Expr> '!=' <Expr>
- * 			 | <Expr> '<' <Expr>
- * 			 | <Expr> '>' <Expr>
- * 			 | <Expr> '<=' <Expr>
- * 			 | <Expr> '>=' <Expr>
- * 			 | <Expr> '&&' <Expr>
- * 			 | <Expr> '||' <Expr>
- * 			 | <Expr> '+' <Expr>
- * 			 | <Expr> '-' <Expr>
- * 			 | <Expr> '*' <Expr>
- * 			 | <Expr> '/' <Expr>
- * 			 | <Expr> '%' <Expr>
- *
- */
 
 class Expr {
 public:
@@ -187,7 +148,7 @@ public:
 
 class Parser {
 public:
-	Parser(const File& file, std::deque<Token> tokens) : file(file), tokens(std::move(tokens)) {}
+	Parser(const Source& source, std::deque<Token> tokens) : source(source), tokens(std::move(tokens)) {}
 
 	Expr* parse() {
 		Expr* expr = parse_expr();
@@ -195,7 +156,7 @@ public:
 		return expr;
 	}
 private:
-	const File& file;
+	const Source& source;
 	std::deque<Token> tokens;
 
 	struct BindingPower {
@@ -245,7 +206,7 @@ private:
 			if (reportErrors) {
 				std::ostringstream oss;
 				oss << "expected token '" << tokenType << "' before eof";
-				file.report_error_at_eof(oss.str());
+				source.report_error_at_eof(oss.str());
 			}
 			return std::nullopt;
 		} else {
@@ -254,7 +215,7 @@ private:
 				if (reportErrors) {
 					std::ostringstream oss;
 					oss << "expected token '" << tokenType << "'; got '" << front << "'";
-					file.report_error(
+					source.report_error(
 					    front.loc.line,
 					    front.loc.colStart,
 					    front.loc.colEnd - front.loc.colStart,
@@ -273,7 +234,7 @@ private:
 	Expr* parse_expr(int minBindingPower = 0, bool reportErrors = true) {
 		if (tokens.empty()) {
 			if (reportErrors) {
-				file.report_error_at_eof("unexpected end of token stream");
+				source.report_error_at_eof("unexpected end of token stream");
 			}
 			return nullptr;
 		}
@@ -360,7 +321,7 @@ private:
 			if (reportErrors) {
 				std::ostringstream oss;
 				oss << "unexpected token '" << peek.type << "'";
-				file.report_error(
+				source.report_error(
 				    peek.loc.line,
 				    peek.loc.colStart,
 				    peek.loc.colEnd - peek.loc.colStart,

@@ -1,3 +1,4 @@
 --style=attach
 --indent=tab
 --add-braces
+--convert-tabs

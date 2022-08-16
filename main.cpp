@@ -3,9 +3,9 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include "file.hpp"
 #include "lexer.hpp"
 #include "parser.hpp"
+#include "source.hpp"
 
 int main(int argc, char* argv[]) {
 	if (argc != 2) {
@@ -23,12 +23,12 @@ int main(int argc, char* argv[]) {
 	std::cout << std::endl;
 
 	std::ifstream ifs(argv[1]);
-	File file(ifs, argv[1]);
-	Lexer lexer(file);
+	Source source(ifs, argv[1]);
+	Lexer lexer(source);
 	std::deque<Token> tokens = lexer.get_tokens();
-	Parser parser(file, std::move(tokens));
+	Parser parser(source, std::move(tokens));
 	parser.parse()->print(std::cout);
 	std::cout << std::endl;
 
-	file.emit_errors(std::cout);
+	source.emit_errors(std::cout);
 }

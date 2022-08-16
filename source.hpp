@@ -6,7 +6,7 @@
 #include <sstream>
 #include <algorithm>
 
-struct File {
+struct Source {
 private:
 	struct Error {
 		int line;
@@ -24,7 +24,7 @@ private:
 public:
 	std::vector<std::string> lines;
 
-	File(std::istream& is, const std::string& filepath = "") : filepath(filepath) {
+	Source(std::istream& is, const std::string& filepath = "") : filepath(filepath) {
 		std::string line;
 		while (std::getline(is, line)) {
 			lines.push_back(std::move(line));
