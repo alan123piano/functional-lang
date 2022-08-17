@@ -3,38 +3,42 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "expr.hpp"
 #include "scope.hpp"
 #include "value.hpp"
-#include "parser.hpp"
 #include "source.hpp"
 
 class Evaluator {
 public:
 	Evaluator(const Source& source) : source(source) {}
 
+	// evaluation currently uses two strategies for scoping:
+	// a Scope variable, which gets swapped for function calls,
+	// and expression substitution for fixpoint expressions
+	// it's possible to have eval() be a virtual Value* method on Exprs, but
+	// Evaluator also holds a ref to the calling scope
 	Value* eval(Expr* expr) {
 		if (expr->as<EIntLit>()) {
 			return new VInt(expr->as<EIntLit>()->value);
 		} else if (expr->as<EBoolLit>()) {
 			return new VBool(expr->as<EBoolLit>()->value);
 		} else if (expr->as<EIdent>()) {
-			EIdent* ident = expr->as<EIdent>();
-			Value* value = scope.get(ident);
+			EIdent* identExpr = expr->as<EIdent>();
+			Value* value = scope.get(identExpr->value);
 			if (!value) {
 				source.report_error(
 				    expr->loc.line,
 				    expr->loc.colStart,
 				    0,
-				    "unbound variable '" + ident->value + "'");
+				    "unbound variable '" + identExpr->value + "'");
 				return nullptr;
 			}
 			return value;
 		} else if (expr->as<ELet>()) {
 			ELet* letExpr = expr->as<ELet>();
-			EIdent* ident = letExpr->ident;
-			scope.push(ident, eval(letExpr->value));
+			scope.push(letExpr->ident, eval(letExpr->value));
 			Value* value = eval(letExpr->body);
-			scope.pop(ident);
+			scope.pop(letExpr->ident);
 			return value;
 		} else if (expr->as<EIf>()) {
 			EIf* ifExpr = expr->as<EIf>();
@@ -50,7 +54,7 @@ public:
 				    ifExpr->test->loc.line,
 				    ifExpr->test->loc.colStart,
 				    0,
-				    "expected expression of bool type in condition for if statement");
+				    "expected expression of bool type in condition for if statement; got type " + test->type_name());
 				return nullptr;
 			}
 			if (cond->value) {
@@ -61,7 +65,9 @@ public:
 		} else if (expr->as<EFun>()) {
 			return new VFun(expr->as<EFun>(), scope);
 		} else if (expr->as<EFix>()) {
-			// TODO
+			// evaluation currently uses substitution (quite expensive)
+			EFix* fixExpr = expr->as<EFix>();
+			return eval(fixExpr->body->subst(fixExpr->ident, fixExpr));
 		} else if (expr->as<EFunAp>()) {
 			EFunAp* funAp = expr->as<EFunAp>();
 			Value* left = eval(funAp->fun);
@@ -74,7 +80,7 @@ public:
 				    funAp->fun->loc.line,
 				    funAp->fun->loc.colStart,
 				    0,
-				    "expected expression of function type in function application");
+				    "expected expression of function type in function application; got type " + left->type_name());
 				return nullptr;
 			}
 			Value* right = eval(funAp->arg);
@@ -84,9 +90,10 @@ public:
 			Scope currScope = scope;
 			scope = fun->scope;
 			scope.push(fun->fun->ident, right);
-			return eval(fun->fun->body);
+			Value* result = eval(fun->fun->body);
 			scope.pop(fun->fun->ident);
 			scope = currScope;
+			return result;
 		} else if (expr->as<EUnaryOp>()) {
 			EUnaryOp* unaryOp = expr->as<EUnaryOp>();
 			Value* right = eval(unaryOp->right);
@@ -113,7 +120,7 @@ public:
 					    unaryOp->right->loc.line,
 					    unaryOp->right->loc.colStart,
 					    0,
-					    "expected expression of boolean type in unary not");
+					    "expected expression of boolean type in unary not; got type " + right->type_name());
 					return nullptr;
 				}
 				return new VBool(!boolVal->value);
@@ -191,7 +198,7 @@ public:
 					    binOp->left->loc.line,
 					    binOp->left->loc.colStart,
 					    0,
-					    "expected expression of boolean type in logical and");
+					    "expected expression of boolean type in logical and; got type " + left->type_name());
 					return nullptr;
 				}
 				VBool* rbool = right->as<VBool>();
@@ -200,7 +207,7 @@ public:
 					    binOp->right->loc.line,
 					    binOp->right->loc.colStart,
 					    0,
-					    "expected expression of boolean type in logical and");
+					    "expected expression of boolean type in logical and; got type " + right->type_name());
 					return nullptr;
 				}
 				return new VBool(lbool->value && rbool->value);
@@ -212,7 +219,7 @@ public:
 					    binOp->left->loc.line,
 					    binOp->left->loc.colStart,
 					    0,
-					    "expected expression of boolean type in logical or");
+					    "expected expression of boolean type in logical or; got type " + left->type_name());
 					return nullptr;
 				}
 				VBool* rbool = right->as<VBool>();
@@ -221,7 +228,7 @@ public:
 					    binOp->right->loc.line,
 					    binOp->right->loc.colStart,
 					    0,
-					    "expected expression of boolean type in logical or");
+					    "expected expression of boolean type in logical or; got type " + right->type_name());
 					return nullptr;
 				}
 				return new VBool(lbool->value || rbool->value);

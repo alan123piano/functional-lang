@@ -17,13 +17,20 @@ int main(int argc, char* argv[]) {
 		std::cout << "Usage: alc file" << std::endl;
 		return 0;
 	}
+
+	std::ifstream ifs(argv[1]);
+	if (!ifs) {
+		std::cout << "Invalid file path: " << argv[1] << std::endl;
+		return 1;
+	}
+
+	// echo cl args
 	std::cout << "alc";
 	for (int i = 1; i < argc; ++i) {
 		std::cout << " " << argv[i];
 	}
 	std::cout << std::endl;
 
-	std::ifstream ifs(argv[1]);
 	Source source(ifs, argv[1]);
 	Lexer lexer(source);
 	std::deque<Token> tokens = lexer.get_tokens();

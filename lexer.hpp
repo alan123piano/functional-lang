@@ -5,24 +5,9 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include "token.hpp"
 #include "source.hpp"
 #include "location.hpp"
-
-enum class TokenType {
-	Error, Eof,
-	Ident, IntLit, True, False,
-	Let, In, If, Then, Else, Fun, Fix,
-	Equals, NotEquals, Not,
-	Lt, Gt, Leq, Geq, And, Or,
-	Plus, Minus, Mul, Div, Mod,
-	LeftParen, RightParen, Arrow
-};
-
-struct Token {
-	Location loc;
-	TokenType type;
-	std::string value;
-};
 
 class Lexer {
 public:
@@ -114,26 +99,19 @@ private:
 			return { {line, colStart, col}, TokenType::Fix, "" };
 		} else {
 			char c = get_char();
-			if ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_') {
+			// check for identifier
+			int size = peek_ident_size();
+			if (size > 0) {
 				int colStart = col;
-				while (col < get_line().size()) {
-					++col;
-					char c = get_char();
-					if (!('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_' || '0' <= c && c <= '9' || c == '\'')) {
-						int colEnd = col;
-						return { {line, colStart, col}, TokenType::Ident, get_line().substr(colStart, colEnd - colStart) };
-					}
-				}
-			} else if ('0' <= c && c <= '9') {
+				col += size;
+				return { {line, colStart, col}, TokenType::Ident, get_line().substr(colStart, col - colStart) };
+			}
+			// check for int literal
+			size = peek_int_lit_size();
+			if (size > 0) {
 				int colStart = col;
-				while (col < get_line().size()) {
-					++col;
-					char c = get_char();
-					if (!('0' <= c && c <= '9')) {
-						int colEnd = col;
-						return { {line, colStart, col}, TokenType::IntLit, get_line().substr(colStart, colEnd - colStart) };
-					}
-				}
+				col += size;
+				return { {line, colStart, col}, TokenType::IntLit, get_line().substr(colStart, col - colStart) };
 			}
 		}
 		// unrecognized char
@@ -144,10 +122,13 @@ private:
 	}
 
 	// helpers
-	const std::string& get_line() {
+	const std::string& get_line() const {
 		return source.lines[line];
 	}
-	char get_char() {
+	char get_char() const {
+		return get_line()[col];
+	}
+	char get_char(int col) const {
 		return get_line()[col];
 	}
 
@@ -185,11 +166,18 @@ private:
 	}
 
 	bool try_consume(const std::string& term) {
+		// if we're consuming a keyword, it cannot also be ambiguously an
+		// identifier (it must be on its own)
+		// for example, fun_add is a single identifier, not 'fun' then '_add'
 		if (col + term.size() > get_line().size()) {
 			return false;
 		} else {
 			bool status = !strncmp(&get_line().c_str()[col], term.c_str(), term.size());
 			if (status) {
+				// block if an identifier is possible
+				if (peek_ident_size() > term.size()) {
+					return false;
+				}
 				col += term.size();
 				return true;
 			} else {
@@ -197,110 +185,36 @@ private:
 			}
 		}
 	}
+
+	// determines size for a hypothetical identifier
+	int peek_ident_size() const {
+		char c = get_char();
+		int colEnd = col;
+		if ('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_') {
+			while (colEnd < get_line().size()) {
+				++colEnd;
+				char c = get_char(colEnd);
+				if (!('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '_' || '0' <= c && c <= '9' || c == '\'')) {
+					break;
+				}
+			}
+		}
+		return colEnd - col;
+	}
+
+	// determines size for a hypothetical int literal
+	int peek_int_lit_size() const {
+		char c = get_char();
+		int colEnd = col;
+		if ('0' <= c && c <= '9') {
+			while (colEnd < get_line().size()) {
+				++colEnd;
+				char c = get_char(colEnd);
+				if (!('0' <= c && c <= '9')) {
+					break;
+				}
+			}
+		}
+		return colEnd - col;
+	}
 };
-
-std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
-	switch (tokenType) {
-	case TokenType::Error:
-		os << "error";
-		break;
-	case TokenType::Eof:
-		os << "eof";
-		break;
-	case TokenType::Ident:
-		os << "ident";
-		break;
-	case TokenType::IntLit:
-		os << "num_lit";
-		break;
-	case TokenType::True:
-		os << "true";
-		break;
-	case TokenType::False:
-		os << "false";
-		break;
-	case TokenType::Let:
-		os << "let";
-		break;
-	case TokenType::In:
-		os << "in";
-		break;
-	case TokenType::If:
-		os << "if";
-		break;
-	case TokenType::Then:
-		os << "then";
-		break;
-	case TokenType::Else:
-		os << "else";
-		break;
-	case TokenType::Fun:
-		os << "fun";
-		break;
-	case TokenType::Fix:
-		os << "fix";
-		break;
-	case TokenType::Equals:
-		os << "=";
-		break;
-	case TokenType::NotEquals:
-		os << "!=";
-		break;
-	case TokenType::Not:
-		os << "!";
-		break;
-	case TokenType::Lt:
-		os << "<";
-		break;
-	case TokenType::Gt:
-		os << ">";
-		break;
-	case TokenType::Leq:
-		os << "<=";
-		break;
-	case TokenType::Geq:
-		os << ">=";
-		break;
-	case TokenType::And:
-		os << "&&";
-		break;
-	case TokenType::Or:
-		os << "||";
-		break;
-	case TokenType::Plus:
-		os << "+";
-		break;
-	case TokenType::Minus:
-		os << "-";
-		break;
-	case TokenType::Mul:
-		os << "*";
-		break;
-	case TokenType::Div:
-		os << "/";
-		break;
-	case TokenType::Mod:
-		os << "%";
-		break;
-	case TokenType::LeftParen:
-		os << "(";
-		break;
-	case TokenType::RightParen:
-		os << ")";
-		break;
-	case TokenType::Arrow:
-		os << "->";
-		break;
-	default:
-		throw std::runtime_error("Unsupported TokenType: " + std::to_string((int)tokenType));
-	}
-	return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const Token& token) {
-	os << token.type;
-	if (token.value != "") {
-		os << "(" << token.value << ")";
-	}
-	return os;
-}

@@ -4,191 +4,10 @@
 #include <sstream>
 #include <iostream>
 #include <optional>
-#include "lexer.hpp"
+#include "expr.hpp"
+#include "token.hpp"
 #include "source.hpp"
 #include "location.hpp"
-
-class Expr {
-public:
-	Location loc;
-
-	// AST locations always have length 0 (AST nodes can be multi-line)
-	Expr(const Location& loc) : loc({ loc.line, loc.colStart, loc.colStart }) {}
-	virtual ~Expr() {}
-	virtual void print(std::ostream& os) const = 0;
-
-	template <typename T>
-	T* as() {
-		return dynamic_cast<T*>(this);
-	}
-
-protected:
-	static void try_print(std::ostream& os, Expr* expr) {
-		if (expr) {
-			expr->print(os);
-		} else {
-			os << "<error>";
-		}
-	}
-};
-
-class EIntLit : public Expr {
-public:
-	long long value;
-
-	EIntLit(const Location& loc, long long value)
-		: Expr(loc), value(value) {}
-
-	void print(std::ostream& os) const override {
-		os << value;
-	}
-};
-
-class EBoolLit : public Expr {
-public:
-	bool value;
-
-	EBoolLit(const Location& loc, bool value)
-		: Expr(loc), value(value) {}
-
-	void print(std::ostream& os) const override {
-		os << (value ? "true" : "false");
-	}
-};
-
-class EIdent : public Expr {
-public:
-	std::string value;
-
-	EIdent(const Location& loc, std::string value)
-		: Expr(loc), value(std::move(value)) {}
-
-	void print(std::ostream& os) const override {
-		os << value;
-	}
-};
-
-class ELet : public Expr {
-public:
-	EIdent* ident;
-	Expr* value;
-	Expr* body;
-
-	ELet(const Location& loc, EIdent* ident, Expr* value, Expr* body)
-		: Expr(loc), ident(ident), value(value), body(body) {}
-
-	void print(std::ostream& os) const override {
-		os << "let ";
-		try_print(os, ident);
-		os << " = (";
-		try_print(os, value);
-		os << ") in (";
-		try_print(os, body);
-		os << ")";
-	}
-};
-
-class EIf : public Expr {
-public:
-	Expr* test;
-	Expr* body;
-	Expr* elseBody;
-
-	EIf(const Location& loc, Expr* test, Expr* body, Expr* elseBody)
-		: Expr(loc), test(test), body(body), elseBody(elseBody) {}
-
-	void print(std::ostream& os) const override {
-		os << "if (";
-		try_print(os, test);
-		os << ") then (";
-		try_print(os, body);
-		os << ") else (";
-		try_print(os, elseBody);
-		os << ")";
-	}
-};
-
-class EFun : public Expr {
-public:
-	EIdent* ident;
-	Expr* body;
-
-	EFun(const Location& loc, EIdent* ident, Expr* body)
-		: Expr(loc), ident(ident), body(body) {}
-
-	void print(std::ostream& os) const override {
-		os << "fun ";
-		try_print(os, ident);
-		os << " -> ";
-		try_print(os, body);
-	}
-};
-
-class EFix : public Expr {
-public:
-	EIdent* ident;
-	Expr* body;
-
-	EFix(const Location& loc, EIdent* ident, Expr* body)
-		: Expr(loc), ident(ident), body(body) {}
-
-	void print(std::ostream& os) const override {
-		os << "fix ";
-		try_print(os, ident);
-		os << " -> ";
-		try_print(os, body);
-	}
-};
-
-class EFunAp : public Expr {
-public:
-	Expr* fun;
-	Expr* arg;
-
-	EFunAp(const Location& loc, Expr* fun, Expr* arg)
-		: Expr(loc), fun(fun), arg(arg) {}
-
-	void print(std::ostream& os) const override {
-		os << "(";
-		try_print(os, fun);
-		os << ") (";
-		try_print(os, arg);
-		os << ")";
-	}
-};
-
-class EUnaryOp : public Expr {
-public:
-	Token op;
-	Expr* right;
-
-	EUnaryOp(const Location& loc, Token op, Expr* right)
-		: Expr(loc), op(op), right(right) {}
-
-	void print(std::ostream& os) const override {
-		os << op << "(";
-		try_print(os, right);
-		os << ")";
-	}
-};
-
-class EBinOp : public Expr {
-public:
-	Expr* left;
-	Token op;
-	Expr* right;
-
-	EBinOp(const Location& loc, Expr* left, Token op, Expr* right)
-		: Expr(loc), left(left), op(op), right(right) {}
-
-	void print(std::ostream& os) const override {
-		os << "(";
-		try_print(os, left);
-		os << ") " << op << " (";
-		try_print(os, right);
-		os << ")";
-	}
-};
 
 class Parser {
 public:
@@ -325,12 +144,11 @@ private:
 			if (!identToken) {
 				return nullptr;
 			}
-			EIdent* ident = new EIdent(identToken->loc, identToken->value);
 			expect_token(TokenType::Equals, reportErrors);
 			Expr* value = parse_expr();
 			expect_token(TokenType::In, reportErrors);
 			Expr* body = parse_expr();
-			lhs = new ELet(peek.loc, ident, value, body);
+			lhs = new ELet(peek.loc, identToken->value, value, body);
 		} else if (peek.type == TokenType::If) {
 			// <EIf>
 			expect_token(TokenType::If, reportErrors);
@@ -347,10 +165,9 @@ private:
 			if (!identToken) {
 				return nullptr;
 			}
-			EIdent* ident = new EIdent(identToken->loc, identToken->value);
 			expect_token(TokenType::Arrow, reportErrors);
 			Expr* body = parse_expr();
-			lhs = new EFun(peek.loc, ident, body);
+			lhs = new EFun(peek.loc, identToken->value, body);
 		} else if (peek.type == TokenType::Fix) {
 			// <EFix>
 			expect_token(TokenType::Fix, reportErrors);
@@ -358,10 +175,9 @@ private:
 			if (!identToken) {
 				return nullptr;
 			}
-			EIdent* ident = new EIdent(identToken->loc, identToken->value);
 			expect_token(TokenType::Arrow, reportErrors);
 			Expr* body = parse_expr();
-			lhs = new EFix(peek.loc, ident, body);
+			lhs = new EFix(peek.loc, identToken->value, body);
 		} else if (peek.type == TokenType::Minus) {
 			// '-' <Expr>
 			expect_token(TokenType::Minus, reportErrors);
@@ -386,7 +202,6 @@ private:
 			return nullptr;
 		}
 		// handle recursive cases with Pratt parsing
-		// handle <EBinOp>
 		while (true) {
 			if (tokens.empty()) {
 				break;
@@ -406,7 +221,8 @@ private:
 			case TokenType::Leq:
 			case TokenType::Geq:
 			case TokenType::And:
-			case TokenType::Or:
+			case TokenType::Or: {
+				// handle <EBinOp>
 				BindingPower bindingPower = BindingPower::BinOp(peek);
 				if (bindingPower.left < minBindingPower) {
 					break;
@@ -420,29 +236,27 @@ private:
 				lhs = new EBinOp(lhs->loc, lhs, peek, rhs);
 				break;
 			}
+			default: {
+				// handle <EFunAp>
+				BindingPower bindingPower = BindingPower::FunAp();
+				if (bindingPower.left < minBindingPower) {
+					break;
+				}
+				// it's a little hacky to call parse_expr to check if we can create a EFunAp..
+				// this trick relies on parse_expr not chomping tokens if it returns a nullptr
+				Expr* rhs = parse_expr(bindingPower.right, false);
+				if (!rhs) {
+					break;
+				}
+				matched = true;
+				lhs = new EFunAp(lhs->loc, lhs, rhs);
+				break;
+			}
+			}
 			if (!matched) {
 				break;
 			}
 		}
-		// handle <EFunAp>
-		while (true) {
-			BindingPower bindingPower = BindingPower::FunAp();
-			if (bindingPower.left < minBindingPower) {
-				break;
-			}
-			// it's a little hacky to call parse_expr to check if we can create a EFunAp..
-			// this trick relies on parse_expr not chomping tokens if it returns a nullptr
-			Expr* rhs = parse_expr(bindingPower.right, false);
-			if (!rhs) {
-				break;
-			}
-			lhs = new EFunAp(lhs->loc, lhs, rhs);
-		}
 		return lhs;
 	}
 };
-
-std::ostream& operator<<(std::ostream& os, const Expr* expr) {
-	expr->print(os);
-	return os;
-}

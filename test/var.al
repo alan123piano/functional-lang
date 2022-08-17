@@ -1,1 +1,1 @@
-x
+let fun_ = 1 in fun_
