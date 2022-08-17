@@ -5,4 +5,4 @@ let fib = fix fib -> fun x ->
     else
         (fib (x - 1)) + (fib (x - 2))
 in
-fib 10
+fib 5

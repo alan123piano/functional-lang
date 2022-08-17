@@ -4,8 +4,6 @@
 #include "token.hpp"
 #include "location.hpp"
 
-class EIdent;
-
 class Expr {
 public:
 	Location loc;
@@ -106,9 +104,9 @@ public:
 		: Expr(loc), ident(std::move(ident)), value(value), body(body) {}
 
 	void print(std::ostream& os) const override {
-		os << "let " << ident << " = (";
+		os << "(let " << ident << " = ";
 		try_print(os, value);
-		os << ") in (";
+		os << " in ";
 		try_print(os, body);
 		os << ")";
 	}
@@ -139,11 +137,11 @@ public:
 		: Expr(loc), test(test), body(body), elseBody(elseBody) {}
 
 	void print(std::ostream& os) const override {
-		os << "if (";
+		os << "(if ";
 		try_print(os, test);
-		os << ") then (";
+		os << " then ";
 		try_print(os, body);
-		os << ") else (";
+		os << " else ";
 		try_print(os, elseBody);
 		os << ")";
 	}
@@ -169,8 +167,9 @@ public:
 		: Expr(loc), ident(std::move(ident)), body(body) {}
 
 	void print(std::ostream& os) const override {
-		os << "fun " << ident << " -> ";
+		os << "(fun " << ident << " -> ";
 		try_print(os, body);
+		os << ")";
 	}
 
 	Expr* copy() const override {
@@ -197,7 +196,7 @@ public:
 		: Expr(loc), ident(std::move(ident)), body(body) {}
 
 	void print(std::ostream& os) const override {
-		os << "fix " << ident << " -> (";
+		os << "(fix " << ident << " -> ";
 		try_print(os, body);
 		os << ")";
 	}
@@ -228,7 +227,7 @@ public:
 	void print(std::ostream& os) const override {
 		os << "(";
 		try_print(os, fun);
-		os << ") (";
+		os << " ";
 		try_print(os, arg);
 		os << ")";
 	}
@@ -253,9 +252,8 @@ public:
 		: Expr(loc), op(op), right(right) {}
 
 	void print(std::ostream& os) const override {
-		os << op << "(";
+		os << op;
 		try_print(os, right);
-		os << ")";
 	}
 
 	Expr* copy() const override {
@@ -280,7 +278,7 @@ public:
 	void print(std::ostream& os) const override {
 		os << "(";
 		try_print(os, left);
-		os << ") " << op << " (";
+		os << " " << op << " ";
 		try_print(os, right);
 		os << ")";
 	}

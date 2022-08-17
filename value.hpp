@@ -3,7 +3,8 @@
 #include <sstream>
 #include <optional>
 #include "scope.hpp"
-#include "expr.hpp"
+
+class EFun;
 
 class Value {
 public:

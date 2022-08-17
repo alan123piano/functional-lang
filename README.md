@@ -9,13 +9,17 @@ Game plan:
 
 - `[X]` Implement lexer and parser
 
-- `[ ]` Write an inefficient but correct interpreter that straightforwardly applies Lambda calculus rules to evaluate expressions
+- `[X]` Write an inefficient but correct interpreter that straightforwardly applies Lambda calculus rules to evaluate expressions
 
 - `[ ]` Algebraic Data Types (sum, product, unit type, etc.)
 
 - `[ ]` Type functions and generics
 
 - `[ ]` Implement lists as syntax sugar for Cons/Nil type
+
+- `[ ]` Support chars; string types as syntax sugar for a list of chars
+
+- `[ ]` Add print/read IO as built-in functions
 
 - `[ ]` Add type inference and compile-time type checking
 
