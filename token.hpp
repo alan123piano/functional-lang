@@ -7,7 +7,7 @@
 enum class TokenType {
 	Error, Eof,
 	Ident, IntLit, True, False,
-	Let, In, If, Then, Else, Fun, Fix,
+	Let, In, If, Then, Else, Fun, Fix, Rec,
 	Equals, NotEquals, Not,
 	Lt, Gt, Leq, Geq, And, Or,
 	Plus, Minus, Mul, Div, Mod,
@@ -32,7 +32,7 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		os << "ident";
 		break;
 	case TokenType::IntLit:
-		os << "num_lit";
+		os << "int_lit";
 		break;
 	case TokenType::True:
 		os << "true";
@@ -60,6 +60,9 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::Fix:
 		os << "fix";
+		break;
+	case TokenType::Rec:
+		os << "rec";
 		break;
 	case TokenType::Equals:
 		os << "=";
@@ -112,8 +115,6 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 	case TokenType::Arrow:
 		os << "->";
 		break;
-	default:
-		throw std::runtime_error("Unsupported TokenType: " + std::to_string((int)tokenType));
 	}
 	return os;
 }

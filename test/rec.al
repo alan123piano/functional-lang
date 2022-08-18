@@ -1,0 +1,1 @@
+let rec dbl n = if n <= 0 then 0 else 2 + dbl (n-1) in dbl 8

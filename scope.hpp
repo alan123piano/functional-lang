@@ -1,5 +1,7 @@
 #pragma once
 
+// unused for now (may be useful for implementing imperative language features)
+
 #include <string>
 #include <vector>
 #include <sstream>

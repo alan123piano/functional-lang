@@ -13,15 +13,19 @@ Game plan:
 
 - `[ ]` Algebraic Data Types (sum, product, unit type, etc.)
 
+- `[ ]` Add type inference and compile-time type checking
+
+- `[ ]` Add 'let rec f x ...' and 'let f arg1 arg2 arg3 ...' syntax sugar for function declarations
+
 - `[ ]` Type functions and generics
 
 - `[ ]` Implement lists as syntax sugar for Cons/Nil type
 
 - `[ ]` Support chars; string types as syntax sugar for a list of chars
 
-- `[ ]` Add print/read IO as built-in functions
+- `[ ]` Support imperative data types (arrays, refs, etc)
 
-- `[ ]` Add type inference and compile-time type checking
+- `[ ]` Add print/read IO as built-in functions
 
 - `[ ]` Generate bytecode targeting a simple ISA (ex. MIPS)
 
@@ -35,7 +39,7 @@ Game plan:
 * Ident : `(A-Za-z_)[A-Za-z0-9_']*`
 * IntLit : `[0-9]+`
 * BoolLit : `true` | `false`
-* Keyword : `let` | `in` | `if` | `then` | `else` | `fun` | `fix`
+* Keyword : `let` | `in` | `if` | `then` | `else` | `fun` | `fix` | `rec`
 * Symbol : `=` | `!=` | `!` | `<` | `>` | `<=` | `>=` | `+` | `-` | `*` | `/` | `%` | `(` | `)` | `->`
 * Comments are opened with `(*`, closed with `*)`, and may be nested. Ex. `(* (* I am a comment *) and I am one too *)`
 

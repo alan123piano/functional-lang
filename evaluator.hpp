@@ -4,7 +4,6 @@
 #include <vector>
 #include <unordered_map>
 #include "expr.hpp"
-#include "scope.hpp"
 #include "value.hpp"
 #include "source.hpp"
 
@@ -24,22 +23,15 @@ public:
 			return new VBool(expr->as<EBoolLit>()->value);
 		} else if (expr->as<EIdent>()) {
 			EIdent* identExpr = expr->as<EIdent>();
-			Value* value = scope.get(identExpr->value);
-			if (!value) {
-				source.report_error(
-				    expr->loc.line,
-				    expr->loc.colStart,
-				    0,
-				    "unbound variable '" + identExpr->value + "'");
-				return nullptr;
-			}
-			return value;
+			source.report_error(
+			    expr->loc.line,
+			    expr->loc.colStart,
+			    0,
+			    "unbound variable '" + identExpr->value + "'");
+			return nullptr;
 		} else if (expr->as<ELet>()) {
 			ELet* letExpr = expr->as<ELet>();
-			scope.push(letExpr->ident, eval(letExpr->value));
-			Value* value = eval(letExpr->body);
-			scope.pop(letExpr->ident);
-			return value;
+			return eval(letExpr->body->subst(letExpr->ident, letExpr->value));
 		} else if (expr->as<EIf>()) {
 			EIf* ifExpr = expr->as<EIf>();
 			Value* test = eval(ifExpr->test);
@@ -63,7 +55,7 @@ public:
 				return eval(ifExpr->elseBody);
 			}
 		} else if (expr->as<EFun>()) {
-			return new VFun(expr->as<EFun>(), scope);
+			return new VFun(expr->as<EFun>());
 		} else if (expr->as<EFix>()) {
 			// evaluation currently uses substitution (quite expensive)
 			EFix* fixExpr = expr->as<EFix>();
@@ -87,13 +79,8 @@ public:
 			if (!right) {
 				return nullptr;
 			}
-			Scope currScope = scope;
-			scope = fun->scope;
-			scope.push(fun->fun->ident, right);
-			Value* result = eval(fun->fun->body);
-			scope.pop(fun->fun->ident);
-			scope = currScope;
-			return result;
+			EFun* funExpr = fun->fun;
+			return eval(funExpr->body->subst(funExpr->ident, funAp->arg));
 		} else if (expr->as<EUnaryOp>()) {
 			EUnaryOp* unaryOp = expr->as<EUnaryOp>();
 			Value* right = eval(unaryOp->right);
@@ -303,5 +290,4 @@ public:
 
 private:
 	const Source& source;
-	Scope scope;
 };

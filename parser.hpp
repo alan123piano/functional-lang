@@ -190,7 +190,8 @@ private:
 			lhs = new EUnaryOp(peek.loc, peek, right);
 		} else {
 			// unexpected token
-			if (reportErrors) {
+			// don't report error tokens - they were already reported during lexing
+			if (reportErrors && peek.type != TokenType::Error) {
 				std::ostringstream oss;
 				oss << "unexpected token '" << peek.type << "'";
 				source.report_error(

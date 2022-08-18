@@ -97,8 +97,9 @@ private:
 			return { {line, colStart, col}, TokenType::Fun, "" };
 		} else if (try_consume("fix")) {
 			return { {line, colStart, col}, TokenType::Fix, "" };
+		} else if (try_consume("rec")) {
+			return { {line, colStart, col}, TokenType::Rec, "" };
 		} else {
-			char c = get_char();
 			// check for identifier
 			int size = peek_ident_size();
 			if (size > 0) {
