@@ -8,45 +8,20 @@
 #include "source.hpp"
 #include "evaluator.hpp"
 
-// later, Normal mode will change to a compilation mode
-enum Mode { Normal, Lex, Parse };
+/**
+ * File input: reads from file
+ * Repl input: reads from cin
+ */
+enum InputMode { File, Repl };
 
-int main(int argc, char* argv[]) {
-	if (argc < 2) {
-		std::cout << "No input file provided" << std::endl;
-		return 1;
-	}
-	if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
-		std::cout << "Usage: alc file [--lex|--parse]" << std::endl;
-		return 0;
-	}
+// compilation mode will be added later
+enum OutputMode { Eval, Lex, Parse };
 
-	std::ifstream ifs(argv[1]);
-	if (!ifs) {
-		std::cout << "Invalid file path: " << argv[1] << std::endl;
-		return 1;
-	}
-
-	Mode mode = Mode::Normal;
-	if (argc >= 3) {
-		if (!strcmp(argv[2], "--lex")) {
-			mode = Mode::Lex;
-		} else if (!strcmp(argv[2], "--parse")) {
-			mode = Mode::Parse;
-		}
-	}
-
-	// echo cl args
-	std::cout << "alc";
-	for (int i = 1; i < argc; ++i) {
-		std::cout << " " << argv[i];
-	}
-	std::cout << std::endl;
-
-	Source source(ifs, argv[1]);
+int run(std::istream& is, const std::string& filepath, OutputMode outputMode) {
+	Source source(is, filepath);
 	Lexer lexer(source);
 	std::deque<Token> tokens = lexer.get_tokens();
-	if (mode == Mode::Lex) {
+	if (outputMode == OutputMode::Lex) {
 		for (Token token : tokens) {
 			std::cout << token << ' ';
 		}
@@ -55,7 +30,7 @@ int main(int argc, char* argv[]) {
 	}
 	Parser parser(source, std::move(tokens));
 	Expr* ast = parser.parse();
-	if (mode == Mode::Parse) {
+	if (outputMode == OutputMode::Parse) {
 		if (source.has_errors()) {
 			source.emit_errors(std::cout);
 		} else {
@@ -82,5 +57,59 @@ int main(int argc, char* argv[]) {
 			std::cout << value << std::endl;
 			return 0;
 		}
+	}
+}
+
+int main(int argc, char* argv[]) {
+	if (argc < 2) {
+		std::cout << "No input file provided" << std::endl;
+		return 1;
+	}
+	if (argc >= 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
+		std::cout << "Usage: alc file|--repl [--lex|--parse]" << std::endl;
+		return 0;
+	}
+
+	InputMode inputMode = !strcmp(argv[1], "--repl")
+	                      ? InputMode::Repl
+	                      : InputMode::File;
+	std::ifstream ifs(argv[1]);
+	std::istream& is = inputMode == InputMode::Repl
+	                   ? std::cin
+	                   : ifs;
+	if (!is) {
+		std::cout << "Invalid file path: " << argv[1] << std::endl;
+		return 1;
+	}
+
+	OutputMode outputMode = OutputMode::Eval;
+	if (argc >= 3) {
+		if (!strcmp(argv[2], "--lex")) {
+			outputMode = OutputMode::Lex;
+		} else if (!strcmp(argv[2], "--parse")) {
+			outputMode = OutputMode::Parse;
+		}
+	}
+
+	// echo cl args
+	std::cout << "alc";
+	for (int i = 1; i < argc; ++i) {
+		std::cout << " " << argv[i];
+	}
+	std::cout << std::endl;
+
+	if (inputMode == InputMode::Repl) {
+		std::stringstream ss;
+		std::string input;
+		while (std::getline(is, input)) {
+			if (input.empty()) {
+				run(ss, "", outputMode);
+				ss = std::stringstream();
+			} else {
+				ss << input << "\n";
+			}
+		}
+	} else {
+		return run(is, argv[1], outputMode);
 	}
 }

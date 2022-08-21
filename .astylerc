@@ -2,3 +2,4 @@
 --indent=tab
 --add-braces
 --convert-tabs
+--keep-one-line-blocks

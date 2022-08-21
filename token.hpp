@@ -7,11 +7,13 @@
 enum class TokenType {
 	Error, Eof,
 	Ident, IntLit, True, False,
-	Let, In, If, Then, Else, Fun, Fix, Rec,
+	Let, In, If, Then, Else,
+	Fun, Fix, Rec,
 	Equals, NotEquals, Not,
 	Lt, Gt, Leq, Geq, And, Or,
 	Plus, Minus, Mul, Div, Mod,
-	LeftParen, RightParen, Arrow
+	LeftParen, RightParen,
+	Arrow, Colon
 };
 
 struct Token {
@@ -114,6 +116,9 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::Arrow:
 		os << "->";
+		break;
+	case TokenType::Colon:
+		os << ":";
 		break;
 	}
 	return os;

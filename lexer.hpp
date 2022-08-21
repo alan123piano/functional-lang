@@ -24,6 +24,8 @@ public:
 		while (buf_valid()) {
 			tokens.push_back(next());
 		}
+
+		// push back eof
 		int lastLine = (int)source.lines.size()-1;
 		int lastLineCol = (int)source.lines[lastLine].size();
 		tokens.push_back({ {lastLine, lastLineCol, 0}, TokenType::Eof, "" });
@@ -59,12 +61,14 @@ private:
 			return { {line, colStart, col}, TokenType::Lt, "" };
 		} else if (try_consume(">")) {
 			return { {line, colStart, col}, TokenType::Gt, "" };
-		} else if (try_consume("->")) {
-			return { {line, colStart, col}, TokenType::Arrow, "" };
 		} else if (try_consume("&&")) {
 			return { {line, colStart, col}, TokenType::And, "" };
 		} else if (try_consume("||")) {
 			return { {line, colStart, col}, TokenType::Or, "" };
+		} else if (try_consume("->")) {
+			return { {line, colStart, col}, TokenType::Arrow, "" };
+		} else if (try_consume(":")) {
+			return { {line, colStart, col}, TokenType::Colon, "" };
 		} else if (try_consume("+")) {
 			return { {line, colStart, col}, TokenType::Plus, "" };
 		} else if (try_consume("-")) {

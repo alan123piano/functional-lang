@@ -29,6 +29,9 @@ public:
 		while (std::getline(is, line)) {
 			lines.push_back(std::move(line));
 		}
+		if (lines.empty()) {
+			throw std::runtime_error("Expected non-empty input");
+		}
 	}
 
 	bool has_errors() {

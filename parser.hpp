@@ -105,7 +105,7 @@ private:
 		Expr* lhs = nullptr;
 		if (peek.type == TokenType::IntLit) {
 			// IntLit
-			expect_token(TokenType::IntLit, reportErrors);
+			if (!expect_token(TokenType::IntLit, reportErrors)) { return nullptr; }
 			long long value;
 			try {
 				value = std::stoll(peek.value);
@@ -122,71 +122,74 @@ private:
 			lhs = new EIntLit(peek.loc, value);
 		} else if (peek.type == TokenType::True) {
 			// BoolLit(true)
-			expect_token(TokenType::True, reportErrors);
+			if (!expect_token(TokenType::True, reportErrors)) { return nullptr; }
 			lhs = new EBoolLit(peek.loc, true);
 		} else if (peek.type == TokenType::False) {
 			// BoolLit(false)
-			expect_token(TokenType::False, reportErrors);
+			if (!expect_token(TokenType::False, reportErrors)) { return nullptr; }
 			lhs = new EBoolLit(peek.loc, false);
 		} else if (peek.type == TokenType::Ident) {
 			// Ident
-			expect_token(TokenType::Ident, reportErrors);
+			if (!expect_token(TokenType::Ident, reportErrors)) { return nullptr; }
 			lhs = new EIdent(peek.loc, peek.value);
 		} else if (peek.type == TokenType::LeftParen) {
 			// '(' <Expr> ')'
-			expect_token(TokenType::LeftParen, reportErrors);
+			if (!expect_token(TokenType::LeftParen, reportErrors)) { return nullptr; }
 			lhs = parse_expr();
-			expect_token(TokenType::RightParen, reportErrors);
+			if (!expect_token(TokenType::RightParen, reportErrors)) { return nullptr; }
 		} else if (peek.type == TokenType::Let) {
 			// <ELet>
-			expect_token(TokenType::Let, reportErrors);
+			if (!expect_token(TokenType::Let, reportErrors)) { return nullptr; }
 			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
-			if (!identToken) {
-				return nullptr;
-			}
-			expect_token(TokenType::Equals, reportErrors);
+			if (!identToken) { return nullptr; }
+			if (!expect_token(TokenType::Equals, reportErrors)) { return nullptr; }
 			Expr* value = parse_expr();
-			expect_token(TokenType::In, reportErrors);
+			if (!value) { return nullptr; }
+			if (!expect_token(TokenType::In, reportErrors)) { return nullptr; }
 			Expr* body = parse_expr();
+			if (!body) { return nullptr; }
 			lhs = new ELet(peek.loc, identToken->value, value, body);
 		} else if (peek.type == TokenType::If) {
 			// <EIf>
-			expect_token(TokenType::If, reportErrors);
+			if (!expect_token(TokenType::If, reportErrors)) { return nullptr; }
 			Expr* test = parse_expr();
-			expect_token(TokenType::Then, reportErrors);
+			if (!test) { return nullptr; }
+			if (!expect_token(TokenType::Then, reportErrors)) { return nullptr; }
 			Expr* body = parse_expr();
-			expect_token(TokenType::Else, reportErrors);
+			if (!body) { return nullptr; }
+			if (!expect_token(TokenType::Else, reportErrors)) { return nullptr; }
 			Expr* elseBody = parse_expr();
+			if (!elseBody) { return nullptr; }
 			lhs = new EIf(peek.loc, test, body, elseBody);
 		} else if (peek.type == TokenType::Fun) {
 			// <EFun>
-			expect_token(TokenType::Fun, reportErrors);
+			if (!expect_token(TokenType::Fun, reportErrors)) { return nullptr; }
 			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
-			if (!identToken) {
-				return nullptr;
-			}
-			expect_token(TokenType::Arrow, reportErrors);
+			if (!identToken) { return nullptr; }
+			if (!expect_token(TokenType::Arrow, reportErrors)) { return nullptr; }
 			Expr* body = parse_expr();
+			if (!body) { return nullptr; }
 			lhs = new EFun(peek.loc, identToken->value, body);
 		} else if (peek.type == TokenType::Fix) {
 			// <EFix>
-			expect_token(TokenType::Fix, reportErrors);
+			if (!expect_token(TokenType::Fix, reportErrors)) { return nullptr; }
 			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
-			if (!identToken) {
-				return nullptr;
-			}
-			expect_token(TokenType::Arrow, reportErrors);
+			if (!identToken) { return nullptr; }
+			if (!expect_token(TokenType::Arrow, reportErrors)) { return nullptr; }
 			Expr* body = parse_expr();
+			if (!body) { return nullptr; }
 			lhs = new EFix(peek.loc, identToken->value, body);
 		} else if (peek.type == TokenType::Minus) {
 			// '-' <Expr>
-			expect_token(TokenType::Minus, reportErrors);
+			if (!expect_token(TokenType::Minus, reportErrors)) { return nullptr; }
 			Expr* right = parse_expr();
+			if (!right) { return nullptr; }
 			lhs = new EUnaryOp(peek.loc, peek, right);
 		} else if (peek.type == TokenType::Not) {
 			// '!' <Expr>
-			expect_token(TokenType::Not, reportErrors);
+			if (!expect_token(TokenType::Not, reportErrors)) { return nullptr; }
 			Expr* right = parse_expr();
+			if (!right) { return nullptr; }
 			lhs = new EUnaryOp(peek.loc, peek, right);
 		} else {
 			// unexpected token
@@ -204,9 +207,7 @@ private:
 		}
 		// handle recursive cases with Pratt parsing
 		while (true) {
-			if (tokens.empty()) {
-				break;
-			}
+			if (tokens.empty()) { break; }
 			peek = tokens.front();
 			bool matched = false;
 			switch (peek.type) {
@@ -225,38 +226,28 @@ private:
 			case TokenType::Or: {
 				// handle <EBinOp>
 				BindingPower bindingPower = BindingPower::BinOp(peek);
-				if (bindingPower.left < minBindingPower) {
-					break;
-				}
+				if (bindingPower.left < minBindingPower) { break; }
 				matched = true;
 				tokens.pop_front();
 				Expr* rhs = parse_expr(bindingPower.right);
-				if (!rhs) {
-					break;
-				}
+				if (!rhs) { break; }
 				lhs = new EBinOp(lhs->loc, lhs, peek, rhs);
 				break;
 			}
 			default: {
 				// handle <EFunAp>
 				BindingPower bindingPower = BindingPower::FunAp();
-				if (bindingPower.left < minBindingPower) {
-					break;
-				}
+				if (bindingPower.left < minBindingPower) { break; }
 				// it's a little hacky to call parse_expr to check if we can create a EFunAp..
 				// this trick relies on parse_expr not chomping tokens if it returns a nullptr
 				Expr* rhs = parse_expr(bindingPower.right, false);
-				if (!rhs) {
-					break;
-				}
+				if (!rhs) { break; }
 				matched = true;
 				lhs = new EFunAp(lhs->loc, lhs, rhs);
 				break;
 			}
 			}
-			if (!matched) {
-				break;
-			}
+			if (!matched) { break; }
 		}
 		return lhs;
 	}
