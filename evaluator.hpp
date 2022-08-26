@@ -21,17 +21,19 @@ public:
 			return new VInt(expr->as<EIntLit>()->value);
 		} else if (expr->as<EBoolLit>()) {
 			return new VBool(expr->as<EBoolLit>()->value);
-		} else if (expr->as<EIdent>()) {
-			EIdent* identExpr = expr->as<EIdent>();
+		} else if (expr->as<EUnitLit>()) {
+			return new VUnit();
+		} else if (expr->as<EVar>()) {
+			EVar* varExpr = expr->as<EVar>();
 			source.report_error(
 			    expr->loc.line,
 			    expr->loc.colStart,
 			    0,
-			    "unbound variable '" + identExpr->value + "'");
+			    "unbound variable '" + varExpr->value + "'");
 			return nullptr;
 		} else if (expr->as<ELet>()) {
 			ELet* letExpr = expr->as<ELet>();
-			return eval(letExpr->body->subst(letExpr->ident, letExpr->value));
+			return eval(letExpr->body->subst(letExpr->ident->value, letExpr->value));
 		} else if (expr->as<EIf>()) {
 			EIf* ifExpr = expr->as<EIf>();
 			Value* test = eval(ifExpr->test);
@@ -59,7 +61,7 @@ public:
 		} else if (expr->as<EFix>()) {
 			// evaluation currently uses substitution (quite expensive)
 			EFix* fixExpr = expr->as<EFix>();
-			return eval(fixExpr->body->subst(fixExpr->ident, fixExpr));
+			return eval(fixExpr->body->subst(fixExpr->ident->value, fixExpr));
 		} else if (expr->as<EFunAp>()) {
 			EFunAp* funAp = expr->as<EFunAp>();
 			Value* left = eval(funAp->fun);
@@ -80,7 +82,7 @@ public:
 				return nullptr;
 			}
 			EFun* funExpr = fun->fun;
-			return eval(funExpr->body->subst(funExpr->ident, funAp->arg));
+			return eval(funExpr->body->subst(funExpr->ident->value, funAp->arg));
 		} else if (expr->as<EUnaryOp>()) {
 			EUnaryOp* unaryOp = expr->as<EUnaryOp>();
 			Value* right = eval(unaryOp->right);

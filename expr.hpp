@@ -1,52 +1,61 @@
 #pragma once
 
+#include <vector>
 #include <sstream>
+#include "type.hpp"
 #include "token.hpp"
 #include "location.hpp"
 
 class Expr {
 public:
 	Location loc;
+	const Type* typeAnn = nullptr;
 
 	// AST locations always have length 0 (AST nodes can be multi-line)
-	Expr(const Location& loc) : loc({ loc.line, loc.colStart, loc.colStart }) {}
+	Expr(const Location& loc, const Type* typeAnn)
+		: loc({ loc.line, loc.colStart, loc.colStart }), typeAnn(typeAnn) {}
 	virtual ~Expr() {}
-	virtual void print(std::ostream& os) const = 0;
 	virtual Expr* copy() const = 0;
 	virtual Expr* subst(const std::string& subIdent, const Expr* subExpr) const = 0;
+
+	static void print(std::ostream& os, const Expr* expr) {
+		if (expr) {
+			expr->print_impl(os);
+			if (expr->typeAnn) {
+				os << " : ";
+				expr->typeAnn->print(os);
+			}
+		} else {
+			os << "<error>";
+		}
+	}
 
 	template <typename T>
 	T* as() {
 		return dynamic_cast<T*>(this);
 	}
 
-protected:
-	static void try_print(std::ostream& os, Expr* expr) {
-		if (expr) {
-			expr->print(os);
-		} else {
-			os << "<error>";
-		}
-	}
+private:
+	virtual void print_impl(std::ostream& os) const = 0;
 };
 
 class EIntLit : public Expr {
 public:
-	long long value;
+	int value;
 
-	EIntLit(const Location& loc, long long value)
-		: Expr(loc), value(value) {}
-
-	void print(std::ostream& os) const override {
-		os << value;
-	}
+	EIntLit(const Location& loc, const Type* typeAnn, int value)
+		: Expr(loc, typeAnn), value(value) {}
 
 	Expr* copy() const override {
-		return new EIntLit(loc, value);
+		return new EIntLit(loc, typeAnn, value);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		return copy();
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << value;
 	}
 };
 
@@ -54,35 +63,49 @@ class EBoolLit : public Expr {
 public:
 	bool value;
 
-	EBoolLit(const Location& loc, bool value)
-		: Expr(loc), value(value) {}
-
-	void print(std::ostream& os) const override {
-		os << (value ? "true" : "false");
-	}
+	EBoolLit(const Location& loc, const Type* typeAnn, bool value)
+		: Expr(loc, typeAnn), value(value) {}
 
 	Expr* copy() const override {
-		return new EBoolLit(loc, value);
+		return new EBoolLit(loc, typeAnn, value);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		return copy();
 	}
+
+	void print_impl(std::ostream& os) const override {
+		os << (value ? "true" : "false");
+	}
 };
 
-class EIdent : public Expr {
+class EUnitLit : public Expr {
+public:
+	EUnitLit(const Location& loc, const Type* typeAnn)
+		: Expr(loc, typeAnn) {}
+
+	Expr* copy() const override {
+		return new EUnitLit(loc, typeAnn);
+	}
+
+	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
+		return copy();
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << "()";
+	}
+};
+
+class EVar : public Expr {
 public:
 	std::string value;
 
-	EIdent(const Location& loc, std::string value)
-		: Expr(loc), value(std::move(value)) {}
-
-	void print(std::ostream& os) const override {
-		os << value;
-	}
+	EVar(const Location& loc, const Type* typeAnn, std::string value)
+		: Expr(loc, typeAnn), value(std::move(value)) {}
 
 	Expr* copy() const override {
-		return new EIdent(loc, value);
+		return new EVar(loc, typeAnn, value);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
@@ -92,38 +115,44 @@ public:
 			return copy();
 		}
 	}
+
+	void print_impl(std::ostream& os) const override {
+		os << value;
+	}
 };
 
 class ELet : public Expr {
 public:
-	std::string ident;
+	EVar* ident;
 	Expr* value;
 	Expr* body;
 
-	ELet(const Location& loc, std::string ident, Expr* value, Expr* body)
-		: Expr(loc), ident(std::move(ident)), value(value), body(body) {}
-
-	void print(std::ostream& os) const override {
-		os << "(let " << ident << " = ";
-		try_print(os, value);
-		os << " in ";
-		try_print(os, body);
-		os << ")";
-	}
+	ELet(const Location& loc, const Type* typeAnn, EVar* ident, Expr* value, Expr* body)
+		: Expr(loc, typeAnn), ident(ident), value(value), body(body) {}
 
 	Expr* copy() const override {
-		return new ELet(loc, ident, value->copy(), body->copy());
+		return new ELet(loc, typeAnn, ident, value->copy(), body->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newValue = value->subst(subIdent, subExpr);
 		Expr* newBody;
-		if (subIdent != ident) {
+		if (subIdent != ident->value) {
 			newBody = body->subst(subIdent, subExpr);
 		} else {
 			newBody = body->copy();
 		}
-		return new ELet(loc, ident, newValue, newBody);
+		return new ELet(loc, typeAnn, ident, newValue, newBody);
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << "(let ";
+		print(os, ident);
+		os << " = ";
+		print(os, value);
+		os << " in ";
+		print(os, body);
+		os << ")";
 	}
 };
 
@@ -133,86 +162,90 @@ public:
 	Expr* body;
 	Expr* elseBody;
 
-	EIf(const Location& loc, Expr* test, Expr* body, Expr* elseBody)
-		: Expr(loc), test(test), body(body), elseBody(elseBody) {}
-
-	void print(std::ostream& os) const override {
-		os << "(if ";
-		try_print(os, test);
-		os << " then ";
-		try_print(os, body);
-		os << " else ";
-		try_print(os, elseBody);
-		os << ")";
-	}
+	EIf(const Location& loc, const Type* typeAnn, Expr* test, Expr* body, Expr* elseBody)
+		: Expr(loc, typeAnn), test(test), body(body), elseBody(elseBody) {}
 
 	Expr* copy() const override {
-		return new EIf(loc, test->copy(), body->copy(), elseBody->copy());
+		return new EIf(loc, typeAnn, test->copy(), body->copy(), elseBody->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newTest = test->subst(subIdent, subExpr);
 		Expr* newBody = body->subst(subIdent, subExpr);
 		Expr* newElseBody = elseBody->subst(subIdent, subExpr);
-		return new EIf(loc, newTest, newBody, newElseBody);
+		return new EIf(loc, typeAnn, newTest, newBody, newElseBody);
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << "(if ";
+		print(os, test);
+		os << " then ";
+		print(os, body);
+		os << " else ";
+		print(os, elseBody);
+		os << ")";
 	}
 };
 
 class EFun : public Expr {
 public:
-	std::string ident;
+	EVar* ident;
 	Expr* body;
 
-	EFun(const Location& loc, std::string ident, Expr* body)
-		: Expr(loc), ident(std::move(ident)), body(body) {}
-
-	void print(std::ostream& os) const override {
-		os << "(fun " << ident << " -> ";
-		try_print(os, body);
-		os << ")";
-	}
+	EFun(const Location& loc, const Type* typeAnn, EVar* ident, Expr* body)
+		: Expr(loc, typeAnn), ident(ident), body(body) {}
 
 	Expr* copy() const override {
-		return new EFun(loc, ident, body->copy());
+		return new EFun(loc, typeAnn, ident, body->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newBody;
-		if (subIdent != ident) {
+		if (subIdent != ident->value) {
 			newBody = body->subst(subIdent, subExpr);
 		} else {
 			newBody = body->copy();
 		}
-		return new EFun(loc, ident, newBody);
+		return new EFun(loc, typeAnn, ident, newBody);
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << "(fun ";
+		print(os, ident);
+		os << " -> ";
+		print(os, body);
+		os << ")";
 	}
 };
 
 class EFix : public Expr {
 public:
-	std::string ident;
+	EVar* ident;
 	Expr* body;
 
-	EFix(const Location& loc, std::string ident, Expr* body)
-		: Expr(loc), ident(std::move(ident)), body(body) {}
-
-	void print(std::ostream& os) const override {
-		os << "(fix " << ident << " -> ";
-		try_print(os, body);
-		os << ")";
-	}
+	EFix(const Location& loc, const Type* typeAnn, EVar* ident, Expr* body)
+		: Expr(loc, typeAnn), ident(ident), body(body) {}
 
 	Expr* copy() const override {
-		return new EFix(loc, ident, body->copy());
+		return new EFix(loc, typeAnn, ident, body->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newBody;
-		if (subIdent != ident) {
+		if (subIdent != ident->value) {
 			newBody = body->subst(subIdent, subExpr);
 		} else {
 			newBody = body->copy();
 		}
-		return new EFix(loc, ident, newBody);
+		return new EFix(loc, typeAnn, ident, newBody);
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << "(fix ";
+		print(os, ident);
+		os << " -> ";
+		print(os, body);
+		os << ")";
 	}
 };
 
@@ -221,25 +254,25 @@ public:
 	Expr* fun;
 	Expr* arg;
 
-	EFunAp(const Location& loc, Expr* fun, Expr* arg)
-		: Expr(loc), fun(fun), arg(arg) {}
-
-	void print(std::ostream& os) const override {
-		os << "(";
-		try_print(os, fun);
-		os << " ";
-		try_print(os, arg);
-		os << ")";
-	}
+	EFunAp(const Location& loc, const Type* typeAnn, Expr* fun, Expr* arg)
+		: Expr(loc, typeAnn), fun(fun), arg(arg) {}
 
 	Expr* copy() const override {
-		return new EFunAp(loc, fun->copy(), arg->copy());
+		return new EFunAp(loc, typeAnn, fun->copy(), arg->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newFun = fun->subst(subIdent, subExpr);
 		Expr* newArg = arg->subst(subIdent, subExpr);
-		return new EFunAp(loc, newFun, newArg);
+		return new EFunAp(loc, typeAnn, newFun, newArg);
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << "(";
+		print(os, fun);
+		os << " ";
+		print(os, arg);
+		os << ")";
 	}
 };
 
@@ -248,21 +281,21 @@ public:
 	Token op;
 	Expr* right;
 
-	EUnaryOp(const Location& loc, Token op, Expr* right)
-		: Expr(loc), op(op), right(right) {}
-
-	void print(std::ostream& os) const override {
-		os << op;
-		try_print(os, right);
-	}
+	EUnaryOp(const Location& loc, const Type* typeAnn, Token op, Expr* right)
+		: Expr(loc, typeAnn), op(op), right(right) {}
 
 	Expr* copy() const override {
-		return new EUnaryOp(loc, op, right->copy());
+		return new EUnaryOp(loc, typeAnn, op, right->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newRight = right->subst(subIdent, subExpr);
-		return new EUnaryOp(loc, op, newRight);
+		return new EUnaryOp(loc, typeAnn, op, newRight);
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << op;
+		print(os, right);
 	}
 };
 
@@ -272,29 +305,29 @@ public:
 	Token op;
 	Expr* right;
 
-	EBinOp(const Location& loc, Expr* left, Token op, Expr* right)
-		: Expr(loc), left(left), op(op), right(right) {}
-
-	void print(std::ostream& os) const override {
-		os << "(";
-		try_print(os, left);
-		os << " " << op << " ";
-		try_print(os, right);
-		os << ")";
-	}
+	EBinOp(const Location& loc, const Type* typeAnn, Expr* left, Token op, Expr* right)
+		: Expr(loc, typeAnn), left(left), op(op), right(right) {}
 
 	Expr* copy() const override {
-		return new EBinOp(loc, left->copy(), op, right->copy());
+		return new EBinOp(loc, typeAnn, left->copy(), op, right->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newLeft = left->subst(subIdent, subExpr);
 		Expr* newRight = right->subst(subIdent, subExpr);
-		return new EBinOp(loc, newLeft, op, newRight);
+		return new EBinOp(loc, typeAnn, newLeft, op, newRight);
+	}
+
+	void print_impl(std::ostream& os) const override {
+		os << "(";
+		print(os, left);
+		os << " " << op << " ";
+		print(os, right);
+		os << ")";
 	}
 };
 
 std::ostream& operator<<(std::ostream& os, const Expr* expr) {
-	expr->print(os);
+	Expr::print(os, expr);
 	return os;
 }

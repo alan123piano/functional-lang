@@ -47,28 +47,26 @@ private:
 
 	Token next() {
 		int colStart = col;
-		if (try_consume("=")) {
-			return { {line, colStart, col}, TokenType::Equals, "" };
-		} else if (try_consume("!=")) {
+		if (try_consume("!=")) {
 			return { {line, colStart, col}, TokenType::NotEquals, "" };
-		} else if (try_consume("!")) {
-			return { {line, colStart, col}, TokenType::Not, "" };
 		} else if (try_consume("<=")) {
 			return { {line, colStart, col}, TokenType::Leq, "" };
 		} else if (try_consume(">=")) {
 			return { {line, colStart, col}, TokenType::Geq, "" };
-		} else if (try_consume("<")) {
-			return { {line, colStart, col}, TokenType::Lt, "" };
-		} else if (try_consume(">")) {
-			return { {line, colStart, col}, TokenType::Gt, "" };
 		} else if (try_consume("&&")) {
 			return { {line, colStart, col}, TokenType::And, "" };
 		} else if (try_consume("||")) {
 			return { {line, colStart, col}, TokenType::Or, "" };
 		} else if (try_consume("->")) {
 			return { {line, colStart, col}, TokenType::Arrow, "" };
-		} else if (try_consume(":")) {
-			return { {line, colStart, col}, TokenType::Colon, "" };
+		} else if (try_consume("=")) {
+			return { {line, colStart, col}, TokenType::Equals, "" };
+		} else if (try_consume("!")) {
+			return { {line, colStart, col}, TokenType::Not, "" };
+		} else if (try_consume("<")) {
+			return { {line, colStart, col}, TokenType::Lt, "" };
+		} else if (try_consume(">")) {
+			return { {line, colStart, col}, TokenType::Gt, "" };
 		} else if (try_consume("+")) {
 			return { {line, colStart, col}, TokenType::Plus, "" };
 		} else if (try_consume("-")) {
@@ -83,6 +81,22 @@ private:
 			return { {line, colStart, col}, TokenType::LeftParen, "" };
 		} else if (try_consume(")")) {
 			return { {line, colStart, col}, TokenType::RightParen, "" };
+		} else if (try_consume(":")) {
+			return { {line, colStart, col}, TokenType::Colon, "" };
+		} else if (try_consume("'")) {
+			return { {line, colStart, col}, TokenType::SingleQuote, "" };
+		} else if (try_consume("|")) {
+			return { {line, colStart, col}, TokenType::Bar, "" };
+		} else if (try_consume(",")) {
+			return { {line, colStart, col}, TokenType::Comma, "" };
+		} else if (try_consume("{")) {
+			return { {line, colStart, col}, TokenType::LeftBrace, "" };
+		} else if (try_consume("}")) {
+			return { {line, colStart, col}, TokenType::RightBrace, "" };
+		} else if (try_consume(".")) {
+			return { {line, colStart, col}, TokenType::Dot, "" };
+		} else if (try_consume(";")) {
+			return { {line, colStart, col}, TokenType::Semicolon, "" };
 		} else if (try_consume("true")) {
 			return { {line, colStart, col}, TokenType::True, "" };
 		} else if (try_consume("false")) {
@@ -103,6 +117,8 @@ private:
 			return { {line, colStart, col}, TokenType::Fix, "" };
 		} else if (try_consume("rec")) {
 			return { {line, colStart, col}, TokenType::Rec, "" };
+		} else if (try_consume("type")) {
+			return { {line, colStart, col}, TokenType::Type, "" };
 		} else {
 			// check for identifier
 			int size = peek_ident_size();

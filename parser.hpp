@@ -1,9 +1,13 @@
 #pragma once
 
 #include <deque>
+#include <limits>
+#include <string>
 #include <sstream>
+#include <utility>
 #include <iostream>
 #include <optional>
+#include <unordered_map>
 #include "expr.hpp"
 #include "token.hpp"
 #include "source.hpp"
@@ -11,16 +15,31 @@
 
 class Parser {
 public:
-	Parser(const Source& source, std::deque<Token> tokens) : source(source), tokens(std::move(tokens)) {}
+	Parser(const Source& source, std::deque<Token> tokens)
+		: source(source), tokens(std::move(tokens)) {}
 
 	Expr* parse() {
+		// parse and register type declarations
+		while (tokens.front().type == TokenType::Type) {
+			std::optional<std::pair<std::string, Type*>> typeDecl = parse_type_decl();
+			if (!typeDecl) { break; }
+			typeTable[typeDecl->first] = typeDecl->second;
+		}
+		// parse expression
 		Expr* expr = parse_expr();
-		expect_token(TokenType::Eof, false);
+		if (expr) {
+			expect_token(TokenType::Eof);
+		}
 		return expr;
 	}
 private:
 	const Source& source;
 	std::deque<Token> tokens;
+	std::unordered_map<std::string, const Type*> typeTable = {
+		{"int", Type::Int},
+		{"bool", Type::Bool},
+		{"unit", Type::Unit}
+	};
 
 	struct BindingPower {
 		// for left-associative, left < right
@@ -64,26 +83,22 @@ private:
 	};
 
 	// Helpers
-	std::optional<Token> expect_token(TokenType tokenType, bool reportErrors = true) {
+	std::optional<Token> expect_token(TokenType tokenType) {
 		if (tokens.empty()) {
-			if (reportErrors) {
-				std::ostringstream oss;
-				oss << "expected token '" << tokenType << "' before eof";
-				source.report_error_at_eof(oss.str());
-			}
+			std::ostringstream oss;
+			oss << "expected token '" << tokenType << "' before eof";
+			source.report_error_at_eof(oss.str());
 			return std::nullopt;
 		} else {
 			Token front = tokens.front();
 			if (front.type != tokenType) {
-				if (reportErrors) {
-					std::ostringstream oss;
-					oss << "expected token '" << tokenType << "'; got '" << front << "'";
-					source.report_error(
-					    front.loc.line,
-					    front.loc.colStart,
-					    front.loc.colEnd - front.loc.colStart,
-					    oss.str());
-				}
+				std::ostringstream oss;
+				oss << "expected token '" << tokenType << "'; got '" << front << "'";
+				source.report_error(
+				    front.loc.line,
+				    front.loc.colStart,
+				    front.loc.colEnd - front.loc.colStart,
+				    oss.str());
 				return std::nullopt;
 			} else {
 				tokens.pop_front();
@@ -95,108 +110,130 @@ private:
 	// Non-terminals
 	// <Expr>
 	Expr* parse_expr(int minBindingPower = 0, bool reportErrors = true) {
-		if (tokens.empty()) {
-			if (reportErrors) {
-				source.report_error_at_eof("unexpected end of token stream");
-			}
-			return nullptr;
-		}
 		Token peek = tokens.front();
 		Expr* lhs = nullptr;
-		if (peek.type == TokenType::IntLit) {
+		switch (peek.type) {
+		case TokenType::IntLit: {
 			// IntLit
-			if (!expect_token(TokenType::IntLit, reportErrors)) { return nullptr; }
-			long long value;
+			tokens.pop_front();
+			int value;
 			try {
 				value = std::stoll(peek.value);
 			} catch (std::exception&) {
-				if (reportErrors) {
-					source.report_error(
-					    peek.loc.line,
-					    peek.loc.colStart,
-					    peek.loc.colEnd - peek.loc.colStart,
-					    "");
-				}
+				source.report_error(
+				    peek.loc.line,
+				    peek.loc.colStart,
+				    peek.loc.colEnd - peek.loc.colStart,
+				    "int literal is too large for its type");
 				return nullptr;
 			}
-			lhs = new EIntLit(peek.loc, value);
-		} else if (peek.type == TokenType::True) {
+			lhs = new EIntLit(peek.loc, nullptr, value);
+			break;
+		}
+		case TokenType::True: {
 			// BoolLit(true)
-			if (!expect_token(TokenType::True, reportErrors)) { return nullptr; }
-			lhs = new EBoolLit(peek.loc, true);
-		} else if (peek.type == TokenType::False) {
+			tokens.pop_front();
+			lhs = new EBoolLit(peek.loc, nullptr, true);
+			break;
+		}
+		case TokenType::False: {
 			// BoolLit(false)
-			if (!expect_token(TokenType::False, reportErrors)) { return nullptr; }
-			lhs = new EBoolLit(peek.loc, false);
-		} else if (peek.type == TokenType::Ident) {
+			tokens.pop_front();
+			lhs = new EBoolLit(peek.loc, nullptr, false);
+			break;
+		}
+		case TokenType::Ident: {
 			// Ident
-			if (!expect_token(TokenType::Ident, reportErrors)) { return nullptr; }
-			lhs = new EIdent(peek.loc, peek.value);
-		} else if (peek.type == TokenType::LeftParen) {
-			// '(' <Expr> ')'
-			if (!expect_token(TokenType::LeftParen, reportErrors)) { return nullptr; }
-			lhs = parse_expr();
-			if (!expect_token(TokenType::RightParen, reportErrors)) { return nullptr; }
-		} else if (peek.type == TokenType::Let) {
+			tokens.pop_front();
+			lhs = new EVar(peek.loc, nullptr, peek.value);
+			break;
+		}
+		case TokenType::LeftParen: {
+			// '(' <Expr> ')' or <EUnitLit>
+			tokens.pop_front();
+			if (tokens.front().type == TokenType::RightParen) {
+				// <EUnitLit>
+				tokens.pop_front();
+				lhs = new EUnitLit(peek.loc, nullptr);
+			} else {
+				// '(' <Expr> ')'
+				lhs = parse_expr();
+				if (!lhs) { return nullptr; }
+				if (!expect_token(TokenType::RightParen)) { return nullptr; }
+			}
+			break;
+		}
+		case TokenType::Let: {
 			// <ELet>
-			if (!expect_token(TokenType::Let, reportErrors)) { return nullptr; }
-			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
-			if (!identToken) { return nullptr; }
-			if (!expect_token(TokenType::Equals, reportErrors)) { return nullptr; }
+			tokens.pop_front();
+			EVar* varExpr = parse_ident();
+			if (!varExpr) { return nullptr; }
+			if (!expect_token(TokenType::Equals)) { return nullptr; }
 			Expr* value = parse_expr();
 			if (!value) { return nullptr; }
-			if (!expect_token(TokenType::In, reportErrors)) { return nullptr; }
+			if (!expect_token(TokenType::In)) { return nullptr; }
 			Expr* body = parse_expr();
 			if (!body) { return nullptr; }
-			lhs = new ELet(peek.loc, identToken->value, value, body);
-		} else if (peek.type == TokenType::If) {
+			lhs = new ELet(peek.loc, nullptr, varExpr, value, body);
+			break;
+		}
+		case TokenType::If: {
 			// <EIf>
-			if (!expect_token(TokenType::If, reportErrors)) { return nullptr; }
+			tokens.pop_front();
 			Expr* test = parse_expr();
 			if (!test) { return nullptr; }
-			if (!expect_token(TokenType::Then, reportErrors)) { return nullptr; }
+			if (!expect_token(TokenType::Then)) { return nullptr; }
 			Expr* body = parse_expr();
 			if (!body) { return nullptr; }
-			if (!expect_token(TokenType::Else, reportErrors)) { return nullptr; }
+			if (!expect_token(TokenType::Else)) { return nullptr; }
 			Expr* elseBody = parse_expr();
 			if (!elseBody) { return nullptr; }
-			lhs = new EIf(peek.loc, test, body, elseBody);
-		} else if (peek.type == TokenType::Fun) {
+			lhs = new EIf(peek.loc, nullptr, test, body, elseBody);
+			break;
+		}
+		case TokenType::Fun: {
 			// <EFun>
-			if (!expect_token(TokenType::Fun, reportErrors)) { return nullptr; }
-			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
-			if (!identToken) { return nullptr; }
-			if (!expect_token(TokenType::Arrow, reportErrors)) { return nullptr; }
+			tokens.pop_front();
+			EVar* varExpr = parse_ident();
+			if (!varExpr) { return nullptr; }
+			if (!expect_token(TokenType::Arrow)) { return nullptr; }
 			Expr* body = parse_expr();
 			if (!body) { return nullptr; }
-			lhs = new EFun(peek.loc, identToken->value, body);
-		} else if (peek.type == TokenType::Fix) {
+			lhs = new EFun(peek.loc, nullptr, varExpr, body);
+			break;
+		}
+		case TokenType::Fix: {
 			// <EFix>
-			if (!expect_token(TokenType::Fix, reportErrors)) { return nullptr; }
-			std::optional<Token> identToken = expect_token(TokenType::Ident, reportErrors);
-			if (!identToken) { return nullptr; }
-			if (!expect_token(TokenType::Arrow, reportErrors)) { return nullptr; }
+			tokens.pop_front();
+			EVar* varExpr = parse_ident();
+			if (!varExpr) { return nullptr; }
+			if (!expect_token(TokenType::Arrow)) { return nullptr; }
 			Expr* body = parse_expr();
 			if (!body) { return nullptr; }
-			lhs = new EFix(peek.loc, identToken->value, body);
-		} else if (peek.type == TokenType::Minus) {
+			lhs = new EFix(peek.loc, nullptr, varExpr, body);
+			break;
+		}
+		case TokenType::Minus: {
 			// '-' <Expr>
-			if (!expect_token(TokenType::Minus, reportErrors)) { return nullptr; }
+			tokens.pop_front();
 			Expr* right = parse_expr();
 			if (!right) { return nullptr; }
-			lhs = new EUnaryOp(peek.loc, peek, right);
-		} else if (peek.type == TokenType::Not) {
+			lhs = new EUnaryOp(peek.loc, nullptr, peek, right);
+			break;
+		}
+		case TokenType::Not: {
 			// '!' <Expr>
-			if (!expect_token(TokenType::Not, reportErrors)) { return nullptr; }
+			tokens.pop_front();
 			Expr* right = parse_expr();
 			if (!right) { return nullptr; }
-			lhs = new EUnaryOp(peek.loc, peek, right);
-		} else {
+			lhs = new EUnaryOp(peek.loc, nullptr, peek, right);
+			break;
+		}
+		default: {
 			// unexpected token
-			// don't report error tokens - they were already reported during lexing
-			if (reportErrors && peek.type != TokenType::Error) {
+			if (reportErrors) {
 				std::ostringstream oss;
-				oss << "unexpected token '" << peek.type << "'";
+				oss << "expected expression; got token '" << peek.type << "'";
 				source.report_error(
 				    peek.loc.line,
 				    peek.loc.colStart,
@@ -205,9 +242,9 @@ private:
 			}
 			return nullptr;
 		}
+		}
 		// handle recursive cases with Pratt parsing
 		while (true) {
-			if (tokens.empty()) { break; }
 			peek = tokens.front();
 			bool matched = false;
 			switch (peek.type) {
@@ -227,11 +264,11 @@ private:
 				// handle <EBinOp>
 				BindingPower bindingPower = BindingPower::BinOp(peek);
 				if (bindingPower.left < minBindingPower) { break; }
-				matched = true;
 				tokens.pop_front();
 				Expr* rhs = parse_expr(bindingPower.right);
 				if (!rhs) { break; }
-				lhs = new EBinOp(lhs->loc, lhs, peek, rhs);
+				matched = true;
+				lhs = new EBinOp(lhs->loc, nullptr, lhs, peek, rhs);
 				break;
 			}
 			default: {
@@ -243,12 +280,187 @@ private:
 				Expr* rhs = parse_expr(bindingPower.right, false);
 				if (!rhs) { break; }
 				matched = true;
-				lhs = new EFunAp(lhs->loc, lhs, rhs);
+				lhs = new EFunAp(lhs->loc, nullptr, lhs, rhs);
 				break;
 			}
 			}
 			if (!matched) { break; }
 		}
+		// check for type annotation
+		if (tokens.front().type == TokenType::Colon) {
+			tokens.pop_front();
+			const Type* typeAnn = parse_type_expr();
+			if (!typeAnn) { return nullptr; }
+			lhs->typeAnn = typeAnn;
+		}
 		return lhs;
+	}
+
+	// <EVar>
+	EVar* parse_ident() {
+		Expr* expr = parse_expr(std::numeric_limits<int>::max());
+		if (!expr) { return nullptr; }
+		if (!expr->as<EVar>()) {
+			source.report_error(
+			    expr->loc.line,
+			    expr->loc.colStart,
+			    0,
+			    "expected identifier expression");
+			return nullptr;
+		}
+		return expr->as<EVar>();
+	}
+
+	// <EType>
+	const Type* parse_type_expr(bool reportErrors = true) {
+		Token peek;
+		std::vector<const Type*> types;
+		while (true) {
+			peek = tokens.front();
+			if (peek.type == TokenType::Ident) {
+				tokens.pop_front();
+				auto it = typeTable.find(peek.value);
+				if (it == typeTable.end()) {
+					source.report_error(
+					    peek.loc.line,
+					    peek.loc.colStart,
+					    peek.loc.colEnd - peek.loc.colStart,
+					    "unbound typename '" + peek.value + "'");
+					return nullptr;
+				}
+				types.push_back(it->second);
+			} else if (peek.type == TokenType::LeftParen) {
+				tokens.pop_front();
+				const Type* inner = parse_type_expr();
+				if (!inner) { return nullptr; }
+				types.push_back(inner);
+				expect_token(TokenType::RightParen);
+			} else {
+				break;
+			}
+			// keep chomping '*' for tuple types
+			if (tokens.front().type != TokenType::Mul) { break; }
+			tokens.pop_front();
+		}
+		// convert parsed types vector into single type or tuple, or report error
+		const Type* lhs;
+		if (types.size() == 0) {
+			if (reportErrors) {
+				std::ostringstream oss;
+				oss << "expected type identifier; got token '" << peek.type << "'";
+				source.report_error(
+				    peek.loc.line,
+				    peek.loc.colStart,
+				    peek.loc.colEnd - peek.loc.colStart,
+				    oss.str());
+			}
+			return nullptr;
+		} else if (types.size() == 1) {
+			lhs = types[0];
+		} else {
+			lhs = new TTuple(std::move(types));
+		}
+		// parse arrow type
+		if (tokens.front().type == TokenType::Arrow) {
+			tokens.pop_front();
+			const Type* rhs = parse_type_expr();
+			if (!rhs) { return nullptr; }
+			lhs = new TArrow(lhs, rhs);
+		}
+		return lhs;
+	}
+
+	// type [name] = [type]
+	std::optional<std::pair<std::string, Type*>> parse_type_decl() {
+		if (!expect_token(TokenType::Type)) { return std::nullopt; }
+		std::optional<Token> ident = expect_token(TokenType::Ident);
+		if (!ident) { return std::nullopt; }
+		std::string typeName = ident->value;
+		// check for duplicate type name
+		if (typeTable.find(typeName) != typeTable.end()) {
+			std::ostringstream oss;
+			oss << "duplicate type name '" << typeName << "'";
+			source.report_error(
+			    ident->loc.line,
+			    ident->loc.colStart,
+			    ident->loc.colEnd - ident->loc.colStart,
+			    oss.str());
+			return std::nullopt;
+		}
+		if (!expect_token(TokenType::Equals)) { return std::nullopt; }
+		Token peek = tokens.front();
+		// FIRST set of VariantDecl: '|', Ident
+		// FIRST set of RecordDecl: '{'
+		switch (peek.type) {
+		case TokenType::Bar: {
+			// VariantDecl with '|' in front
+			tokens.pop_front();
+			// no break - goto VariantDecl ident case
+		}
+		case TokenType::Ident: {
+			// VariantDecl
+			expect_token(TokenType::Ident); // expect token because case TokenType::Bar leads in to here
+			std::vector<TVariant::Case> cases;
+			// parse first case
+			const Type* type = parse_type_expr(false);
+			cases.push_back({ peek.value, type });
+			// parse additional cases
+			while (true) {
+				peek = tokens.front();
+				if (peek.type != TokenType::Bar) { break; }
+				tokens.pop_front();
+				std::optional<Token> ident = expect_token(TokenType::Ident);
+				if (!ident) { return std::nullopt; }
+				const Type* type = parse_type_expr(false);
+				cases.push_back({ ident->value, type });
+			}
+			expect_token(TokenType::Semicolon);
+			return std::make_pair(typeName, new TVariant(typeName, std::move(cases)));
+		}
+		case TokenType::LeftBrace: {
+			// RecordDecl
+			tokens.pop_front();
+			std::vector<TRecord::Field> fields;
+			// parse cases
+			bool expectingComma = false;
+			while (true) {
+				if (expectingComma) {
+					peek = tokens.front();
+					if (peek.type != TokenType::Comma) { break; }
+					tokens.pop_front();
+				}
+				expectingComma = true; // expect comma to come before every case after the first
+				std::optional<Token> ident = expect_token(TokenType::Ident);
+				if (!ident) { return std::nullopt; }
+				expect_token(TokenType::Colon);
+				const Type* type = parse_type_expr();
+				if (!type) {
+					peek = tokens.front();
+					std::ostringstream oss;
+					oss << "expected type expression; got token '" << peek << "'";
+					source.report_error(
+					    peek.loc.line,
+					    peek.loc.colStart,
+					    peek.loc.colEnd - peek.loc.colStart,
+					    oss.str());
+					return std::nullopt;
+				}
+				fields.push_back({ ident->value, type });
+			}
+			expect_token(TokenType::RightBrace);
+			expect_token(TokenType::Semicolon);
+			return std::make_pair(typeName, new TRecord(typeName, std::move(fields)));
+		}
+		default: {
+			std::ostringstream oss;
+			oss << "expected type declaration; got token '" << peek << "'";
+			source.report_error(
+			    peek.loc.line,
+			    peek.loc.colStart,
+			    peek.loc.colEnd - peek.loc.colStart,
+			    oss.str());
+			return std::nullopt;
+		}
+		}
 	}
 };

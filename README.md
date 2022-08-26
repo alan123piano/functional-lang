@@ -1,9 +1,9 @@
 # AL Compiler
-Welcome to my project! The goal is to write a compiler without using any libraries (outside of the C++17 STL). This will involve hand-rolling a lexer, parser, and assembly code generator.
+Welcome to my project! The goal is to write a compiler without using any libraries (outside of the C++ STL). This will involve hand-rolling a lexer, parser, and assembly code generator.
 
-Arithmetic Language is a minimal functional language. AL is intended to be simple, but also powerful enough to elegantly express non-trivial programs. It is inspired by other functional languages including OCaml and Haskell.
+Arithmetic Language is a functional language. AL is intended to be powerful enough to express complex programs. It is inspired by other functional languages, especially OCaml and Haskell.
 
-The parser uses Pratt parsing (a very cool technique that combines iteration and recursion) to produce an AST without resorting to convoluted LL(1) left-factored grammars. It also produces gcc-like error messages.
+The parser uses LL(1) parsing combined with iteration, which helps avoid some convoluted left-factored grammars. It also produces gcc-like error messages.
 
 Game plan:
 
@@ -18,6 +18,10 @@ Game plan:
 - `[ ]` Add 'let rec f x ...' and 'let f arg1 arg2 arg3 ...' syntax sugar for function declarations
 
 - `[ ]` Type functions and generics
+
+- `[ ]` Allow type aliasing (ex. type int_t = int)
+
+- `[ ]` Module system
 
 - `[ ]` Implement lists as syntax sugar for Cons/Nil type
 
@@ -36,34 +40,43 @@ Game plan:
 ## Grammar
 
 ### Tokens
-* Ident : `(A-Za-z_)[A-Za-z0-9_']*`
 * IntLit : `[0-9]+`
 * BoolLit : `true` | `false`
-* Keyword : `let` | `in` | `if` | `then` | `else` | `fun` | `fix` | `rec`
-* Symbol : `=` | `!=` | `!` | `<` | `>` | `<=` | `>=` | `+` | `-` | `*` | `/` | `%` | `(` | `)` | `->`
+* Ident : `(A-Za-z_)[A-Za-z0-9_']*`
 * Comments are opened with `(*`, closed with `*)`, and may be nested. Ex. `(* (* I am a comment *) and I am one too *)`
 
 ### Productions
 ```
-<Expr> ::= <ELet>
+<Program> ::= (<TypeDecl>)* <Expr>
+
+<Expr> ::= Ident
+         | IntLit
+         | BoolLit
+         | <EUnitLit>
+         | <ELet>
          | <EIf>
          | <EFun>
          | <EFix>
          | <EFunAp>
          | <EUnaryOp>
          | <EBinOp>
-         | IntLit
-         | BoolLit
-         | Ident
          | '(' <Expr> ')'
+         | <Expr> ':' <EType>
 
-<ELet> ::= 'let' Ident '=' <Expr> 'in' <Expr>
+<EUnitLit> ::= '(' ')'
+
+<EType> ::= Ident
+          | <EType> '->' <EType>
+          | <EType> '*' <EType>
+          | '(' <EType> ')'
+
+<ELet> ::= 'let' <Expr> '=' <Expr> 'in' <Expr>
 
 <EIf> ::= 'if' <Expr> 'then' <Expr> 'else' <Expr>
 
-<EFun> ::= 'fun' Ident '->' <Expr>
+<EFun> ::= 'fun' <Expr> '->' <Expr>
 
-<EFix> ::= 'fix' Ident '->' <Expr>
+<EFix> ::= 'fix' <Expr> '->' <Expr>
 
 <EFunAp> ::= <Expr> <Expr>
 
@@ -83,5 +96,13 @@ Game plan:
            | <Expr> '*' <Expr>
            | <Expr> '/' <Expr>
            | <Expr> '%' <Expr>
+
+<TypeDecl> ::= 'type' Ident '=' ('|')? <VariantCaseDecl> ('|' <VariantCaseDecl>)* ';'
+             | 'type' Ident '=' '{' <RecordFieldDecl> (',' <RecordFieldDecl>)* '}' ';'
+
+<VariantCaseDecl> ::= Ident
+                    | Ident <EType>
+
+<RecordFieldDecl> ::= Ident ':' <EType>
 
 ```

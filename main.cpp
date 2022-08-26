@@ -18,9 +18,16 @@ enum InputMode { File, Repl };
 enum OutputMode { Eval, Lex, Parse };
 
 int run(std::istream& is, const std::string& filepath, OutputMode outputMode) {
+	// initialize source
 	Source source(is, filepath);
+
+	// lex
 	Lexer lexer(source);
 	std::deque<Token> tokens = lexer.get_tokens();
+	if (source.has_errors()) {
+		source.emit_errors(std::cout);
+		return 1;
+	}
 	if (outputMode == OutputMode::Lex) {
 		for (Token token : tokens) {
 			std::cout << token << ' ';
@@ -28,36 +35,34 @@ int run(std::istream& is, const std::string& filepath, OutputMode outputMode) {
 		std::cout << std::endl;
 		return 0;
 	}
+
+	// parse
 	Parser parser(source, std::move(tokens));
 	Expr* ast = parser.parse();
-	if (outputMode == OutputMode::Parse) {
-		if (source.has_errors()) {
-			source.emit_errors(std::cout);
-		} else {
-			std::cout << ast << std::endl;
-		}
-		return 0;
-	}
 	if (source.has_errors()) {
 		source.emit_errors(std::cout);
 		return 1;
-	} else {
-		if (!ast) {
-			throw std::runtime_error("Received invalid AST without emitting errors");
-		}
-		Evaluator evaluator(source);
-		Value* value = evaluator.eval(ast);
-		if (source.has_errors()) {
-			source.emit_errors(std::cout);
-			return 1;
-		} else {
-			if (!value) {
-				throw std::runtime_error("Received invalid value without emitting errors");
-			}
-			std::cout << value << std::endl;
-			return 0;
-		}
 	}
+	if (!ast) {
+		throw std::runtime_error("Received invalid AST without emitting errors");
+	}
+	if (outputMode == OutputMode::Parse) {
+		std::cout << ast << std::endl;
+		return 0;
+	}
+
+	// evaluate
+	Evaluator evaluator(source);
+	Value* value = evaluator.eval(ast);
+	if (source.has_errors()) {
+		source.emit_errors(std::cout);
+		return 1;
+	}
+	if (!value) {
+		throw std::runtime_error("Received invalid value without emitting errors");
+	}
+	std::cout << value << std::endl;
+	return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -103,6 +108,7 @@ int main(int argc, char* argv[]) {
 		std::string input;
 		while (std::getline(is, input)) {
 			if (input.empty()) {
+				std::cout << "\x1b[A"; // go up a line
 				run(ss, "", outputMode);
 				ss = std::stringstream();
 			} else {

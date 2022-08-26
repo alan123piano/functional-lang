@@ -3,3 +3,4 @@
 --add-braces
 --convert-tabs
 --keep-one-line-blocks
+--align-pointer=type

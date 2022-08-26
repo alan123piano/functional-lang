@@ -8,12 +8,15 @@ enum class TokenType {
 	Error, Eof,
 	Ident, IntLit, True, False,
 	Let, In, If, Then, Else,
-	Fun, Fix, Rec,
+	Fun, Fix, Rec, Type,
 	Equals, NotEquals, Not,
 	Lt, Gt, Leq, Geq, And, Or,
 	Plus, Minus, Mul, Div, Mod,
 	LeftParen, RightParen,
-	Arrow, Colon
+	Arrow, Colon, SingleQuote,
+	Bar /* '|' */, Comma,
+	LeftBrace, RightBrace, Dot,
+	Semicolon
 };
 
 struct Token {
@@ -65,6 +68,9 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::Rec:
 		os << "rec";
+		break;
+	case TokenType::Type:
+		os << "type";
 		break;
 	case TokenType::Equals:
 		os << "=";
@@ -119,6 +125,27 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::Colon:
 		os << ":";
+		break;
+	case TokenType::SingleQuote:
+		os << "'";
+		break;
+	case TokenType::Bar:
+		os << "|";
+		break;
+	case TokenType::Comma:
+		os << ",";
+		break;
+	case TokenType::LeftBrace:
+		os << "{";
+		break;
+	case TokenType::RightBrace:
+		os << "}";
+		break;
+	case TokenType::Dot:
+		os << ".";
+		break;
+	case TokenType::Semicolon:
+		os << ";";
 		break;
 	}
 	return os;
