@@ -53,6 +53,7 @@ Game plan:
          | IntLit
          | BoolLit
          | <EUnitLit>
+         | <ERecordLit>
          | <ELet>
          | <EIf>
          | <EFun>
@@ -60,10 +61,14 @@ Game plan:
          | <EFunAp>
          | <EUnaryOp>
          | <EBinOp>
+         | <EMatch>
+         | <EFieldAccess>
          | '(' <Expr> ')'
          | <Expr> ':' <EType>
 
 <EUnitLit> ::= '(' ')'
+
+<ERecordLit> ::= '{' Ident '=' <Expr> (',' Ident '=' <Expr>)* '}' // TODO
 
 <EType> ::= Ident
           | <EType> '->' <EType>
@@ -97,6 +102,15 @@ Game plan:
            | <Expr> '/' <Expr>
            | <Expr> '%' <Expr>
 
+<EMatch> ::= 'match' <Expr> 'with' ('|')? <MatchCase> ('|' <MatchCase>)* // TODO
+
+<MatchCase> ::= Ident (<MatchCaseBinding>)? '->' <Expr>
+
+<MatchCaseBinding> ::= Ident
+                     | '(' Ident ')'
+
+<EFieldAccess> ::= <Expr> '.' Ident // TODO
+
 <TypeDecl> ::= 'type' Ident '=' ('|')? <VariantCaseDecl> ('|' <VariantCaseDecl>)* ';'
              | 'type' Ident '=' '{' <RecordFieldDecl> (',' <RecordFieldDecl>)* '}' ';'
 
@@ -104,5 +118,7 @@ Game plan:
                     | Ident <EType>
 
 <RecordFieldDecl> ::= Ident ':' <EType>
+
+TODO: Variant constructors (FunAp on an ident and an arg), Record literals, pattern-matching, field-access, etc..
 
 ```

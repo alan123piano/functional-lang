@@ -2,13 +2,13 @@
 
 #include <string>
 #include <sstream>
-#include "location.hpp"
+#include "source.hpp"
 
 enum class TokenType {
 	Error, Eof,
 	Ident, IntLit, True, False,
 	Let, In, If, Then, Else,
-	Fun, Fix, Rec, Type,
+	Fun, Fix, Rec, Type, Match, With,
 	Equals, NotEquals, Not,
 	Lt, Gt, Leq, Geq, And, Or,
 	Plus, Minus, Mul, Div, Mod,
@@ -23,6 +23,10 @@ struct Token {
 	Location loc;
 	TokenType type;
 	std::string value;
+
+	void report_error_at_token(std::string error) {
+		loc.source->report_error(loc.line, loc.colStart, 0, std::move(error));
+	}
 };
 
 std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
@@ -71,6 +75,12 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::Type:
 		os << "type";
+		break;
+	case TokenType::Match:
+		os << "match";
+		break;
+	case TokenType::With:
+		os << "with";
 		break;
 	case TokenType::Equals:
 		os << "=";

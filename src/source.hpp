@@ -42,10 +42,6 @@ public:
 		errors.push_back({line, col, len, std::move(error)});
 	}
 
-	void report_error_at_eof(std::string error) const {
-		errors.push_back({(int)lines.size()-1, (int)lines[lines.size()-1].size(), 1, std::move(error)});
-	}
-
 	void emit_errors(std::ostream& os) const {
 		// sort errors
 		std::sort(errors.begin(), errors.end(), [](const Error& a, const Error& b) -> bool {
@@ -105,4 +101,11 @@ private:
 		}
 		return str.substr(i);
 	}
+};
+
+struct Location {
+	const Source* source = nullptr;
+	int line;
+	int colStart;
+	int colEnd;
 };

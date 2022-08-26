@@ -4,6 +4,7 @@
 #include <vector>
 #include <sstream>
 #include <algorithm>
+#include <unordered_map>
 
 class Type {
 public:
@@ -126,10 +127,19 @@ public:
 	};
 
 	std::string name;
-	std::vector<Field> fields;
+	std::unordered_map<std::string, const Type*> fields;
+	std::vector<std::string> idents; // original order of idents
 
-	TRecord(std::string name, std::vector<Field> fields)
-		: name(std::move(name)), fields(std::move(fields)) {}
+	TRecord(std::string name, const std::vector<Field>& orderedFields)
+		: name(std::move(name)) {
+		for (const Field& field : orderedFields) {
+			if (fields.find(field.ident) != fields.end()) {
+				throw std::runtime_error("Duplicate field in record type declaration");
+			}
+			fields.insert({ field.ident, field.type });
+			idents.push_back(field.ident);
+		}
+	}
 
 	bool equal(const Type* other) const override {
 		if (!other->as<TRecord>()) { return false; }

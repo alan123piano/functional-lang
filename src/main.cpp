@@ -37,7 +37,7 @@ int run(std::istream& is, const std::string& filepath, OutputMode outputMode) {
 	}
 
 	// parse
-	Parser parser(source, std::move(tokens));
+	Parser parser(std::move(tokens));
 	Expr* ast = parser.parse();
 	if (source.has_errors()) {
 		source.emit_errors(std::cout);
@@ -52,7 +52,7 @@ int run(std::istream& is, const std::string& filepath, OutputMode outputMode) {
 	}
 
 	// evaluate
-	Evaluator evaluator(source);
+	Evaluator evaluator;
 	Value* value = evaluator.eval(ast);
 	if (source.has_errors()) {
 		source.emit_errors(std::cout);

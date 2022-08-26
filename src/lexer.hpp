@@ -7,7 +7,6 @@
 #include <cstring>
 #include "token.hpp"
 #include "source.hpp"
-#include "location.hpp"
 
 class Lexer {
 public:
@@ -28,7 +27,7 @@ public:
 		// push back eof
 		int lastLine = (int)source.lines.size()-1;
 		int lastLineCol = (int)source.lines[lastLine].size();
-		tokens.push_back({ {lastLine, lastLineCol, 0}, TokenType::Eof, "" });
+		tokens.push_back({ {&source, lastLine, lastLineCol, 0}, TokenType::Eof, "" });
 
 		// report errors for unterm comments
 		for (const Location& loc : commentStack) {
@@ -48,98 +47,102 @@ private:
 	Token next() {
 		int colStart = col;
 		if (try_consume("!=")) {
-			return { {line, colStart, col}, TokenType::NotEquals, "" };
+			return { {&source, line, colStart, col}, TokenType::NotEquals, "" };
 		} else if (try_consume("<=")) {
-			return { {line, colStart, col}, TokenType::Leq, "" };
+			return { {&source, line, colStart, col}, TokenType::Leq, "" };
 		} else if (try_consume(">=")) {
-			return { {line, colStart, col}, TokenType::Geq, "" };
+			return { {&source, line, colStart, col}, TokenType::Geq, "" };
 		} else if (try_consume("&&")) {
-			return { {line, colStart, col}, TokenType::And, "" };
+			return { {&source, line, colStart, col}, TokenType::And, "" };
 		} else if (try_consume("||")) {
-			return { {line, colStart, col}, TokenType::Or, "" };
+			return { {&source, line, colStart, col}, TokenType::Or, "" };
 		} else if (try_consume("->")) {
-			return { {line, colStart, col}, TokenType::Arrow, "" };
+			return { {&source, line, colStart, col}, TokenType::Arrow, "" };
 		} else if (try_consume("=")) {
-			return { {line, colStart, col}, TokenType::Equals, "" };
+			return { {&source, line, colStart, col}, TokenType::Equals, "" };
 		} else if (try_consume("!")) {
-			return { {line, colStart, col}, TokenType::Not, "" };
+			return { {&source, line, colStart, col}, TokenType::Not, "" };
 		} else if (try_consume("<")) {
-			return { {line, colStart, col}, TokenType::Lt, "" };
+			return { {&source, line, colStart, col}, TokenType::Lt, "" };
 		} else if (try_consume(">")) {
-			return { {line, colStart, col}, TokenType::Gt, "" };
+			return { {&source, line, colStart, col}, TokenType::Gt, "" };
 		} else if (try_consume("+")) {
-			return { {line, colStart, col}, TokenType::Plus, "" };
+			return { {&source, line, colStart, col}, TokenType::Plus, "" };
 		} else if (try_consume("-")) {
-			return { {line, colStart, col}, TokenType::Minus, "" };
+			return { {&source, line, colStart, col}, TokenType::Minus, "" };
 		} else if (try_consume("*")) {
-			return { {line, colStart, col}, TokenType::Mul, "" };
+			return { {&source, line, colStart, col}, TokenType::Mul, "" };
 		} else if (try_consume("/")) {
-			return { {line, colStart, col}, TokenType::Div, "" };
+			return { {&source, line, colStart, col}, TokenType::Div, "" };
 		} else if (try_consume("%")) {
-			return { {line, colStart, col}, TokenType::Mod, "" };
+			return { {&source, line, colStart, col}, TokenType::Mod, "" };
 		} else if (try_consume("(")) {
-			return { {line, colStart, col}, TokenType::LeftParen, "" };
+			return { {&source, line, colStart, col}, TokenType::LeftParen, "" };
 		} else if (try_consume(")")) {
-			return { {line, colStart, col}, TokenType::RightParen, "" };
+			return { {&source, line, colStart, col}, TokenType::RightParen, "" };
 		} else if (try_consume(":")) {
-			return { {line, colStart, col}, TokenType::Colon, "" };
+			return { {&source, line, colStart, col}, TokenType::Colon, "" };
 		} else if (try_consume("'")) {
-			return { {line, colStart, col}, TokenType::SingleQuote, "" };
+			return { {&source, line, colStart, col}, TokenType::SingleQuote, "" };
 		} else if (try_consume("|")) {
-			return { {line, colStart, col}, TokenType::Bar, "" };
+			return { {&source, line, colStart, col}, TokenType::Bar, "" };
 		} else if (try_consume(",")) {
-			return { {line, colStart, col}, TokenType::Comma, "" };
+			return { {&source, line, colStart, col}, TokenType::Comma, "" };
 		} else if (try_consume("{")) {
-			return { {line, colStart, col}, TokenType::LeftBrace, "" };
+			return { {&source, line, colStart, col}, TokenType::LeftBrace, "" };
 		} else if (try_consume("}")) {
-			return { {line, colStart, col}, TokenType::RightBrace, "" };
+			return { {&source, line, colStart, col}, TokenType::RightBrace, "" };
 		} else if (try_consume(".")) {
-			return { {line, colStart, col}, TokenType::Dot, "" };
+			return { {&source, line, colStart, col}, TokenType::Dot, "" };
 		} else if (try_consume(";")) {
-			return { {line, colStart, col}, TokenType::Semicolon, "" };
+			return { {&source, line, colStart, col}, TokenType::Semicolon, "" };
 		} else if (try_consume("true")) {
-			return { {line, colStart, col}, TokenType::True, "" };
+			return { {&source, line, colStart, col}, TokenType::True, "" };
 		} else if (try_consume("false")) {
-			return { {line, colStart, col}, TokenType::False, "" };
+			return { {&source, line, colStart, col}, TokenType::False, "" };
 		} else if (try_consume("let")) {
-			return { {line, colStart, col}, TokenType::Let, "" };
+			return { {&source, line, colStart, col}, TokenType::Let, "" };
 		} else if (try_consume("in")) {
-			return { {line, colStart, col}, TokenType::In, "" };
+			return { {&source, line, colStart, col}, TokenType::In, "" };
 		} else if (try_consume("if")) {
-			return { {line, colStart, col}, TokenType::If, "" };
+			return { {&source, line, colStart, col}, TokenType::If, "" };
 		} else if (try_consume("then")) {
-			return { {line, colStart, col}, TokenType::Then, "" };
+			return { {&source, line, colStart, col}, TokenType::Then, "" };
 		} else if (try_consume("else")) {
-			return { {line, colStart, col}, TokenType::Else, "" };
+			return { {&source, line, colStart, col}, TokenType::Else, "" };
 		} else if (try_consume("fun")) {
-			return { {line, colStart, col}, TokenType::Fun, "" };
+			return { {&source, line, colStart, col}, TokenType::Fun, "" };
 		} else if (try_consume("fix")) {
-			return { {line, colStart, col}, TokenType::Fix, "" };
+			return { {&source, line, colStart, col}, TokenType::Fix, "" };
 		} else if (try_consume("rec")) {
-			return { {line, colStart, col}, TokenType::Rec, "" };
+			return { {&source, line, colStart, col}, TokenType::Rec, "" };
 		} else if (try_consume("type")) {
-			return { {line, colStart, col}, TokenType::Type, "" };
+			return { {&source, line, colStart, col}, TokenType::Type, "" };
+		} else if (try_consume("match")) {
+			return { {&source, line, colStart, col}, TokenType::Match, "" };
+		} else if (try_consume("with")) {
+			return { {&source, line, colStart, col}, TokenType::With, "" };
 		} else {
 			// check for identifier
 			int size = peek_ident_size();
 			if (size > 0) {
 				int colStart = col;
 				col += size;
-				return { {line, colStart, col}, TokenType::Ident, get_line().substr(colStart, col - colStart) };
+				return { {&source, line, colStart, col}, TokenType::Ident, get_line().substr(colStart, col - colStart) };
 			}
 			// check for int literal
 			size = peek_int_lit_size();
 			if (size > 0) {
 				int colStart = col;
 				col += size;
-				return { {line, colStart, col}, TokenType::IntLit, get_line().substr(colStart, col - colStart) };
+				return { {&source, line, colStart, col}, TokenType::IntLit, get_line().substr(colStart, col - colStart) };
 			}
 		}
 		// unrecognized char
 		++col;
 		std::string unrecognizedChar = get_line().substr(colStart, 1);
 		source.report_error(line, colStart, col - colStart, "stray '" + unrecognizedChar + "' in program");
-		return { {line, colStart, col}, TokenType::Error, unrecognizedChar };
+		return { {&source, line, colStart, col}, TokenType::Error, unrecognizedChar };
 	}
 
 	// helpers
@@ -165,7 +168,7 @@ private:
 				continue;
 			}
 			if (try_consume("(*")) {
-				commentStack.push_back({line, col-2, col});
+				commentStack.push_back({&source, line, col-2, col});
 				continue;
 			}
 			if (try_consume("*)")) {

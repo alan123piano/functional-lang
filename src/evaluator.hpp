@@ -9,8 +9,6 @@
 
 class Evaluator {
 public:
-	Evaluator(const Source& source) : source(source) {}
-
 	// evaluation currently uses two strategies for scoping:
 	// a Scope variable, which gets swapped for function calls,
 	// and expression substitution for fixpoint expressions
@@ -25,11 +23,7 @@ public:
 			return new VUnit();
 		} else if (expr->as<EVar>()) {
 			EVar* varExpr = expr->as<EVar>();
-			source.report_error(
-			    expr->loc.line,
-			    expr->loc.colStart,
-			    0,
-			    "unbound variable '" + varExpr->value + "'");
+			varExpr->report_error_at_expr("unbound variable '" + varExpr->value + "'");
 			return nullptr;
 		} else if (expr->as<ELet>()) {
 			ELet* letExpr = expr->as<ELet>();
@@ -44,11 +38,7 @@ public:
 			}
 			VBool* cond = test->as<VBool>();
 			if (!cond) {
-				source.report_error(
-				    ifExpr->test->loc.line,
-				    ifExpr->test->loc.colStart,
-				    0,
-				    "expected expression of bool type in condition for if statement; got type " + test->type_name());
+				ifExpr->test->report_error_at_expr("expected expression of bool type in condition for if statement; got type " + test->type_name());
 				return nullptr;
 			}
 			if (cond->value) {
@@ -70,11 +60,7 @@ public:
 			}
 			VFun* fun = left->as<VFun>();
 			if (!fun) {
-				source.report_error(
-				    funAp->fun->loc.line,
-				    funAp->fun->loc.colStart,
-				    0,
-				    "expected expression of function type in function application; got type " + left->type_name());
+				funAp->fun->report_error_at_expr("expected expression of function type in function application; got type " + left->type_name());
 				return nullptr;
 			}
 			Value* right = eval(funAp->arg);
@@ -93,11 +79,7 @@ public:
 			case TokenType::Minus: {
 				Value* result = right->negate();
 				if (!result) {
-					source.report_error(
-					    unaryOp->right->loc.line,
-					    unaryOp->right->loc.colStart,
-					    0,
-					    "expression (of " + right->type_name() + " type) does not define unary negation");
+					unaryOp->right->report_error_at_expr("expression (of " + right->type_name() + " type) does not define unary negation");
 					return nullptr;
 				}
 				return result;
@@ -105,11 +87,7 @@ public:
 			case TokenType::Not: {
 				VBool* boolVal = right->as<VBool>();
 				if (!boolVal) {
-					source.report_error(
-					    unaryOp->right->loc.line,
-					    unaryOp->right->loc.colStart,
-					    0,
-					    "expected expression of boolean type in unary not; got type " + right->type_name());
+					unaryOp->right->report_error_at_expr("expected expression of boolean type in unary not; got type " + right->type_name());
 					return nullptr;
 				}
 				return new VBool(!boolVal->value);
@@ -132,11 +110,7 @@ public:
 			case TokenType::NotEquals: {
 				std::optional<bool> result = left->equals(right);
 				if (!result) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define equality with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define equality with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				bool value = binOp->op.type == TokenType::Equals ? *result : !(*result);
@@ -146,11 +120,7 @@ public:
 			case TokenType::Geq: {
 				std::optional<bool> result = left->less_than(right);
 				if (!result) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define less with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define less with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				bool value = binOp->op.type == TokenType::Lt ? *result : !(*result);
@@ -160,20 +130,12 @@ public:
 			case TokenType::Gt: {
 				std::optional<bool> ltResult = left->less_than(right);
 				if (!ltResult) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define less with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define less with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				std::optional<bool> eqResult = left->equals(right);
 				if (!eqResult) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define equality with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define equality with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				bool leq = *ltResult || *eqResult;
@@ -183,20 +145,12 @@ public:
 			case TokenType::And: {
 				VBool* lbool = left->as<VBool>();
 				if (!lbool) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "expected expression of boolean type in logical and; got type " + left->type_name());
+					binOp->left->report_error_at_expr("expected expression of boolean type in logical and; got type " + left->type_name());
 					return nullptr;
 				}
 				VBool* rbool = right->as<VBool>();
 				if (!rbool) {
-					source.report_error(
-					    binOp->right->loc.line,
-					    binOp->right->loc.colStart,
-					    0,
-					    "expected expression of boolean type in logical and; got type " + right->type_name());
+					binOp->right->report_error_at_expr("expected expression of boolean type in logical and; got type " + right->type_name());
 					return nullptr;
 				}
 				return new VBool(lbool->value && rbool->value);
@@ -204,20 +158,12 @@ public:
 			case TokenType::Or: {
 				VBool* lbool = left->as<VBool>();
 				if (!lbool) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "expected expression of boolean type in logical or; got type " + left->type_name());
+					binOp->left->report_error_at_expr("expected expression of boolean type in logical or; got type " + left->type_name());
 					return nullptr;
 				}
 				VBool* rbool = right->as<VBool>();
 				if (!rbool) {
-					source.report_error(
-					    binOp->right->loc.line,
-					    binOp->right->loc.colStart,
-					    0,
-					    "expected expression of boolean type in logical or; got type " + right->type_name());
+					binOp->right->report_error_at_expr("expected expression of boolean type in logical or; got type " + right->type_name());
 					return nullptr;
 				}
 				return new VBool(lbool->value || rbool->value);
@@ -225,11 +171,7 @@ public:
 			case TokenType::Plus: {
 				Value* result = left->plus(right);
 				if (!result) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define addition with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define addition with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				return result;
@@ -237,11 +179,7 @@ public:
 			case TokenType::Minus: {
 				Value* result = left->minus(right);
 				if (!result) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define subtraction with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define subtraction with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				return result;
@@ -249,11 +187,7 @@ public:
 			case TokenType::Mul: {
 				Value* result = left->mul(right);
 				if (!result) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define multiplication with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define multiplication with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				return result;
@@ -261,11 +195,7 @@ public:
 			case TokenType::Div: {
 				Value* result = left->div(right);
 				if (!result) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define division with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define division with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				return result;
@@ -273,11 +203,7 @@ public:
 			case TokenType::Mod: {
 				Value* result = left->mod(right);
 				if (!result) {
-					source.report_error(
-					    binOp->left->loc.line,
-					    binOp->left->loc.colStart,
-					    0,
-					    "left expression (of " + left->type_name() + " type) does not define modulo with right expression (of " + right->type_name() + " type)");
+					binOp->left->report_error_at_expr("left expression (of " + left->type_name() + " type) does not define modulo with right expression (of " + right->type_name() + " type)");
 					return nullptr;
 				}
 				return result;
@@ -289,7 +215,4 @@ public:
 		}
 		throw std::runtime_error("Unimplemented evaluation for expression");
 	}
-
-private:
-	const Source& source;
 };

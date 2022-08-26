@@ -8,15 +8,14 @@
 #include <iostream>
 #include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include "expr.hpp"
 #include "token.hpp"
 #include "source.hpp"
-#include "location.hpp"
 
 class Parser {
 public:
-	Parser(const Source& source, std::deque<Token> tokens)
-		: source(source), tokens(std::move(tokens)) {}
+	Parser(std::deque<Token> tokens) : tokens(std::move(tokens)) {}
 
 	Expr* parse() {
 		// parse and register type declarations
@@ -33,7 +32,6 @@ public:
 		return expr;
 	}
 private:
-	const Source& source;
 	std::deque<Token> tokens;
 	std::unordered_map<std::string, const Type*> typeTable = {
 		{"int", Type::Int},
@@ -85,20 +83,13 @@ private:
 	// Helpers
 	std::optional<Token> expect_token(TokenType tokenType) {
 		if (tokens.empty()) {
-			std::ostringstream oss;
-			oss << "expected token '" << tokenType << "' before eof";
-			source.report_error_at_eof(oss.str());
-			return std::nullopt;
+			throw std::runtime_error("unexpected end of token buffer");
 		} else {
 			Token front = tokens.front();
 			if (front.type != tokenType) {
 				std::ostringstream oss;
 				oss << "expected token '" << tokenType << "'; got '" << front << "'";
-				source.report_error(
-				    front.loc.line,
-				    front.loc.colStart,
-				    front.loc.colEnd - front.loc.colStart,
-				    oss.str());
+				front.report_error_at_token(oss.str());
 				return std::nullopt;
 			} else {
 				tokens.pop_front();
@@ -120,11 +111,7 @@ private:
 			try {
 				value = std::stoll(peek.value);
 			} catch (std::exception&) {
-				source.report_error(
-				    peek.loc.line,
-				    peek.loc.colStart,
-				    peek.loc.colEnd - peek.loc.colStart,
-				    "int literal is too large for its type");
+				peek.report_error_at_token("int literal is too large for its type");
 				return nullptr;
 			}
 			lhs = new EIntLit(peek.loc, nullptr, value);
@@ -161,6 +148,31 @@ private:
 				if (!lhs) { return nullptr; }
 				if (!expect_token(TokenType::RightParen)) { return nullptr; }
 			}
+			break;
+		}
+		case TokenType::LeftBrace: {
+			// <ERecordLit>
+			std::vector<ERecordLit::Field> fields;
+			std::unordered_set<std::string> identsUsed; // prevent duplicate idents
+			// parse fields
+			do {
+				// on the first loop, this will pop the LeftBrace;
+				// on subsequent loops, it will pop the comma
+				// (kinda hacky, but reduces code duplication)
+				tokens.pop_front();
+				std::optional<Token> ident = expect_token(TokenType::Ident);
+				if (!ident) { return nullptr; }
+				if (!expect_token(TokenType::Equals)) { return nullptr; }
+				Expr* expr = parse_expr();
+				if (!expr) { return nullptr; }
+				if (!identsUsed.insert(ident->value).second) {
+					peek.report_error_at_token("duplicate record field '" + ident->value + "'");
+					return nullptr;
+				}
+				fields.push_back({ ident->value, expr });
+			} while (tokens.front().type == TokenType::Comma);
+			if (!expect_token(TokenType::RightBrace)) { return nullptr; }
+			lhs = new ERecordLit(peek.loc, nullptr, fields);
 			break;
 		}
 		case TokenType::Let: {
@@ -234,11 +246,7 @@ private:
 			if (reportErrors) {
 				std::ostringstream oss;
 				oss << "expected expression; got token '" << peek.type << "'";
-				source.report_error(
-				    peek.loc.line,
-				    peek.loc.colStart,
-				    peek.loc.colEnd - peek.loc.colStart,
-				    oss.str());
+				peek.report_error_at_token(oss.str());
 			}
 			return nullptr;
 		}
@@ -301,11 +309,7 @@ private:
 		Expr* expr = parse_expr(std::numeric_limits<int>::max());
 		if (!expr) { return nullptr; }
 		if (!expr->as<EVar>()) {
-			source.report_error(
-			    expr->loc.line,
-			    expr->loc.colStart,
-			    0,
-			    "expected identifier expression");
+			expr->report_error_at_expr("expected identifier expression");
 			return nullptr;
 		}
 		return expr->as<EVar>();
@@ -321,11 +325,7 @@ private:
 				tokens.pop_front();
 				auto it = typeTable.find(peek.value);
 				if (it == typeTable.end()) {
-					source.report_error(
-					    peek.loc.line,
-					    peek.loc.colStart,
-					    peek.loc.colEnd - peek.loc.colStart,
-					    "unbound typename '" + peek.value + "'");
+					peek.report_error_at_token("unbound typename '" + peek.value + "'");
 					return nullptr;
 				}
 				types.push_back(it->second);
@@ -334,7 +334,7 @@ private:
 				const Type* inner = parse_type_expr();
 				if (!inner) { return nullptr; }
 				types.push_back(inner);
-				expect_token(TokenType::RightParen);
+				if (!expect_token(TokenType::RightParen)) { return nullptr; }
 			} else {
 				break;
 			}
@@ -348,11 +348,7 @@ private:
 			if (reportErrors) {
 				std::ostringstream oss;
 				oss << "expected type identifier; got token '" << peek.type << "'";
-				source.report_error(
-				    peek.loc.line,
-				    peek.loc.colStart,
-				    peek.loc.colEnd - peek.loc.colStart,
-				    oss.str());
+				peek.report_error_at_token(oss.str());
 			}
 			return nullptr;
 		} else if (types.size() == 1) {
@@ -380,11 +376,7 @@ private:
 		if (typeTable.find(typeName) != typeTable.end()) {
 			std::ostringstream oss;
 			oss << "duplicate type name '" << typeName << "'";
-			source.report_error(
-			    ident->loc.line,
-			    ident->loc.colStart,
-			    ident->loc.colEnd - ident->loc.colStart,
-			    oss.str());
+			ident->report_error_at_token(oss.str());
 			return std::nullopt;
 		}
 		if (!expect_token(TokenType::Equals)) { return std::nullopt; }
@@ -399,7 +391,8 @@ private:
 		}
 		case TokenType::Ident: {
 			// VariantDecl
-			expect_token(TokenType::Ident); // expect token because case TokenType::Bar leads in to here
+			// expect token because case TokenType::Bar leads in to here
+			if (!expect_token(TokenType::Ident)) { return std::nullopt; }
 			std::vector<TVariant::Case> cases;
 			// parse first case
 			const Type* type = parse_type_expr(false);
@@ -414,13 +407,14 @@ private:
 				const Type* type = parse_type_expr(false);
 				cases.push_back({ ident->value, type });
 			}
-			expect_token(TokenType::Semicolon);
+			if (!expect_token(TokenType::Semicolon)) { return std::nullopt; }
 			return std::make_pair(typeName, new TVariant(typeName, std::move(cases)));
 		}
 		case TokenType::LeftBrace: {
 			// RecordDecl
 			tokens.pop_front();
 			std::vector<TRecord::Field> fields;
+			std::unordered_set<std::string> identsUsed; // prevent duplicate idents
 			// parse cases
 			bool expectingComma = false;
 			while (true) {
@@ -432,33 +426,30 @@ private:
 				expectingComma = true; // expect comma to come before every case after the first
 				std::optional<Token> ident = expect_token(TokenType::Ident);
 				if (!ident) { return std::nullopt; }
-				expect_token(TokenType::Colon);
+				if (!expect_token(TokenType::Colon)) { return std::nullopt; }
 				const Type* type = parse_type_expr();
 				if (!type) {
 					peek = tokens.front();
 					std::ostringstream oss;
 					oss << "expected type expression; got token '" << peek << "'";
-					source.report_error(
-					    peek.loc.line,
-					    peek.loc.colStart,
-					    peek.loc.colEnd - peek.loc.colStart,
-					    oss.str());
+					peek.report_error_at_token(oss.str());
+					return std::nullopt;
+				}
+				// check for duplicate field
+				if (!identsUsed.insert(ident->value).second) {
+					ident->report_error_at_token("duplicate record field '" + ident->value + "'");
 					return std::nullopt;
 				}
 				fields.push_back({ ident->value, type });
 			}
-			expect_token(TokenType::RightBrace);
-			expect_token(TokenType::Semicolon);
+			if (!expect_token(TokenType::RightBrace)) { return std::nullopt; }
+			if (!expect_token(TokenType::Semicolon)) { return std::nullopt; }
 			return std::make_pair(typeName, new TRecord(typeName, std::move(fields)));
 		}
 		default: {
 			std::ostringstream oss;
 			oss << "expected type declaration; got token '" << peek << "'";
-			source.report_error(
-			    peek.loc.line,
-			    peek.loc.colStart,
-			    peek.loc.colEnd - peek.loc.colStart,
-			    oss.str());
+			peek.report_error_at_token(oss.str());
 			return std::nullopt;
 		}
 		}

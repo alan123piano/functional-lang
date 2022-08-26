@@ -2,8 +2,7 @@
 
 #include <sstream>
 #include <optional>
-
-class EFun;
+#include "expr.hpp"
 
 class Value {
 public:
