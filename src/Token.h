@@ -2,7 +2,7 @@
 
 #include <string>
 #include <sstream>
-#include "source.hpp"
+#include "Source.h"
 
 enum class TokenType {
 	Error, Eof,
@@ -24,7 +24,7 @@ struct Token {
 	TokenType type;
 	std::string value;
 
-	void report_error_at_token(std::string error) {
+	void report_error_at_token(std::string error) const {
 		loc.source->report_error(loc.line, loc.colStart, 0, std::move(error));
 	}
 };

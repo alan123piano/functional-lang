@@ -102,14 +102,16 @@ Game plan:
            | <Expr> '/' <Expr>
            | <Expr> '%' <Expr>
 
-<EMatch> ::= 'match' <Expr> 'with' ('|')? <MatchCase> ('|' <MatchCase>)* // TODO
+// TODO
+<EMatch> ::= 'match' <Expr> 'with' ('|')? <MatchCase> ('|' <MatchCase>)*
 
 <MatchCase> ::= Ident (<MatchCaseBinding>)? '->' <Expr>
 
 <MatchCaseBinding> ::= Ident
                      | '(' Ident ')'
 
-<EFieldAccess> ::= <Expr> '.' Ident // TODO
+// TODO
+<EFieldAccess> ::= <Expr> '.' Ident
 
 <TypeDecl> ::= 'type' Ident '=' ('|')? <VariantCaseDecl> ('|' <VariantCaseDecl>)* ';'
              | 'type' Ident '=' '{' <RecordFieldDecl> (',' <RecordFieldDecl>)* '}' ';'

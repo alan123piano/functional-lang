@@ -9,9 +9,23 @@
 #include <optional>
 #include <unordered_map>
 #include <unordered_set>
-#include "expr.hpp"
-#include "token.hpp"
-#include "source.hpp"
+
+#include "Expr.h"
+#include "expr/EBinOp.h"
+#include "expr/EBoolLit.h"
+#include "expr/EFix.h"
+#include "expr/EFun.h"
+#include "expr/EFunAp.h"
+#include "expr/EIf.h"
+#include "expr/EIntLit.h"
+#include "expr/ELet.h"
+#include "expr/ERecordLit.h"
+#include "expr/EUnaryOp.h"
+#include "expr/EUnitLit.h"
+#include "expr/EVar.h"
+
+#include "Token.h"
+#include "Source.h"
 
 class Parser {
 public:

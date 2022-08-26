@@ -5,8 +5,8 @@
 #include <string>
 #include <vector>
 #include <cstring>
-#include "token.hpp"
-#include "source.hpp"
+#include "Token.h"
+#include "Source.h"
 
 class Lexer {
 public:

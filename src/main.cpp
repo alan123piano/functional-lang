@@ -3,10 +3,9 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include "lexer.hpp"
-#include "parser.hpp"
-#include "source.hpp"
-#include "evaluator.hpp"
+#include "Lexer.h"
+#include "Parser.h"
+#include "Source.h"
 
 /**
  * File input: reads from file
@@ -52,8 +51,7 @@ int run(std::istream& is, const std::string& filepath, OutputMode outputMode) {
 	}
 
 	// evaluate
-	Evaluator evaluator;
-	Value* value = evaluator.eval(ast);
+	Value* value = ast->eval();
 	if (source.has_errors()) {
 		source.emit_errors(std::cout);
 		return 1;
