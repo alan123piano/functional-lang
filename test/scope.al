@@ -1,5 +1,3 @@
-let a = 3 in
-let f = fun _ -> a + b in
-let a = 1 in
-let b = 2 in
-f 0
+let f = (let a = 1 in (fun (x : int) -> (x + a)))
+in
+f

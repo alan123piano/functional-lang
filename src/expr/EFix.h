@@ -38,6 +38,7 @@ public:
 				return ident->typeAnn;
 			}
 		}
+		report_error_at_expr("ill-typed fix expression");
 		return nullptr;
 	}
 
