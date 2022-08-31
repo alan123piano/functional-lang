@@ -10,15 +10,7 @@ public:
 		os << "()";
 	}
 
-	std::string type_name() const {
-		return "unit";
-	}
-
-	std::optional<bool> equals(Value* other) const override {
-		VUnit* otherUnit = other->as<VUnit>();
-		if (!otherUnit) {
-			return std::nullopt;
-		}
-		return true;
+	const Type* get_type() const override {
+		return Type::Unit;
 	}
 };

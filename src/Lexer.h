@@ -130,6 +130,13 @@ private:
 				col += size;
 				return { {&source, line, colStart, col}, TokenType::Ident, get_line().substr(colStart, col - colStart) };
 			}
+			// check for float literal
+			size = peek_float_lit_size();
+			if (size > 0) {
+				int colStart = col;
+				col += size;
+				return { {&source, line, colStart, col}, TokenType::FloatLit, get_line().substr(colStart, col - colStart) };
+			}
 			// check for int literal
 			size = peek_int_lit_size();
 			if (size > 0) {
@@ -238,6 +245,50 @@ private:
 					break;
 				}
 			}
+		}
+		return colEnd - col;
+	}
+
+	// determines size for a hypothetical float literal
+	// [0-9]+(.)[0-9]*((E|e)(+|-)?[0-9]+)?
+	int peek_float_lit_size() const {
+		int colEnd = col;
+		// [0-9]+
+		while (colEnd < get_line().size()) {
+			char c = get_char(colEnd);
+			if (!('0' <= c && c <= '9')) {
+				break;
+			}
+			++colEnd;
+		}
+		if (col == colEnd || colEnd == get_line().size()) { return 0; }
+		// (.)
+		if (get_char(colEnd) != '.') { return 0; }
+		++colEnd;
+		// [0-9]*
+		while (colEnd < get_line().size()) {
+			char c = get_char(colEnd);
+			if (!('0' <= c && c <= '9')) {
+				break;
+			}
+			++colEnd;
+		}
+		// ((E|e)(+|-)?[0-9]+)?
+		if (colEnd < get_line().size() && (get_char(colEnd) == 'E' || get_char(colEnd) == 'e')) {
+			++colEnd;
+			if (colEnd < get_line().size() && (get_char(colEnd) == '+' || get_char(colEnd) == '-')) {
+				++colEnd;
+			}
+			// [0-9]+
+			int a = colEnd;
+			while (colEnd < get_line().size()) {
+				char c = get_char(colEnd);
+				if (!('0' <= c && c <= '9')) {
+					break;
+				}
+				++colEnd;
+			}
+			if (colEnd - a == 0) { return 0; }
 		}
 		return colEnd - col;
 	}

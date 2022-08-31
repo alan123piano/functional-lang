@@ -26,6 +26,22 @@ public:
 		return nullptr;
 	}
 
+	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
+		const Type* type = typeCtx.get(value);
+		if (!type) {
+			if (reportErrors) {
+				report_error_at_expr("unbound variable " + value);
+			}
+			return nullptr;
+		} else {
+			return type;
+		}
+	}
+
+	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
+		return type_syn(typeCtx, false) == type;
+	}
+
 	void print_impl(std::ostream& os) const override {
 		os << value;
 	}

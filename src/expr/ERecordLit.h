@@ -50,6 +50,36 @@ public:
 		return nullptr;
 	}
 
+	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
+		if (!typeAnn) {
+			if (reportErrors) {
+				report_error_at_expr("failed to synthesize record type");
+			}
+			return nullptr;
+		}
+		if (!type_ana(typeAnn, typeCtx)) {
+			if (reportErrors) {
+				std::ostringstream oss;
+				oss << "expression does not analyze against type " << typeAnn;
+				report_error_at_expr(oss.str());
+			}
+			return nullptr;
+		}
+		return typeAnn;
+	}
+
+	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
+		const TRecord* recordType = type->as<TRecord>();
+		if (!recordType) { return false; }
+		if (recordType->fields.size() != fields.size()) { return false; }
+		for (auto& recordField : recordType->fields) {
+			auto it = fields.find(recordField.first);
+			if (it == fields.end()) { return false; }
+			if (!it->second->type_ana(recordField.second, typeCtx)) { return false; }
+		}
+		return true;
+	}
+
 	void print_impl(std::ostream& os) const override {
 		os << "{ ";
 		bool printComma = false;

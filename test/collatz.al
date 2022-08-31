@@ -1,5 +1,5 @@
 let collatz =
-    fix collatz ->
+    fix (collatz : int -> int) ->
         fun n ->
             if n = 1 then
                 0

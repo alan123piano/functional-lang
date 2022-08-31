@@ -20,6 +20,14 @@ public:
 		return new VUnit();
 	}
 
+	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
+		return Type::Unit;
+	}
+
+	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
+		return type_syn(typeCtx, false) == type;
+	}
+
 	void print_impl(std::ostream& os) const override {
 		os << "()";
 	}

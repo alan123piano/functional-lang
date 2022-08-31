@@ -2,49 +2,18 @@
 
 #include <sstream>
 #include <optional>
+#include "Type.h"
 
 class Value {
 public:
 	Value() {}
 	virtual ~Value() {}
 	virtual void print(std::ostream& os) const = 0;
-	virtual std::string type_name() const = 0;
-
-	virtual Value* negate() const {
-		return nullptr;
-	}
-
-	virtual std::optional<bool> equals(Value* other) const {
-		return std::nullopt;
-	}
-
-	virtual std::optional<bool> less_than(Value* other) const {
-		return std::nullopt;
-	}
-
-	virtual Value* plus(Value* other) const {
-		return nullptr;
-	}
-
-	virtual Value* minus(Value* other) const {
-		return nullptr;
-	}
-
-	virtual Value* mul(Value* other) const {
-		return nullptr;
-	}
-
-	virtual Value* div(Value* other) const {
-		return nullptr;
-	}
-
-	virtual Value* mod(Value* other) const {
-		return nullptr;
-	}
+	virtual const Type* get_type() const = 0;
 
 	template <typename T>
-	T* as() {
-		return dynamic_cast<T*>(this);
+	const T* as() const {
+		return dynamic_cast<const T*>(this);
 	}
 };
 

@@ -9,11 +9,11 @@ Game plan:
 
 - `[X]` Implement lexer and parser
 
-- `[X]` Write an inefficient but correct interpreter that straightforwardly applies Lambda calculus rules to evaluate expressions
+- `[ ]` Add type inference and compile-time type checking
+
+- `[X]` Write an interpreter that straightforwardly applies Lambda calculus rules to evaluate expressions
 
 - `[ ]` Algebraic Data Types (sum, product, unit type, etc.)
-
-- `[ ]` Add type inference and compile-time type checking
 
 - `[ ]` Add 'let rec f x ...' and 'let f arg1 arg2 arg3 ...' syntax sugar for function declarations
 
@@ -31,7 +31,7 @@ Game plan:
 
 - `[ ]` Add print/read IO as built-in functions
 
-- `[ ]` Generate bytecode targeting a simple ISA (ex. MIPS)
+- `[ ]` Generate bytecode targeting a simple ISA (ex. LLVM)
 
 - `[ ]` Implement optimizations on bytecode (ex. tail recursion, common subexpression elimination, etc.)
 
@@ -41,6 +41,7 @@ Game plan:
 
 ### Tokens
 * IntLit : `[0-9]+`
+* FloatLit : `[0-9]+(.)[0-9]*(E|e)(+|-)?[0-9]+`
 * BoolLit : `true` | `false`
 * Ident : `(A-Za-z_)[A-Za-z0-9_']*`
 * Comments are opened with `(*`, closed with `*)`, and may be nested. Ex. `(* (* I am a comment *) and I am one too *)`
@@ -51,6 +52,7 @@ Game plan:
 
 <Expr> ::= Ident
          | IntLit
+         | FloatLit
          | BoolLit
          | <EUnitLit>
          | <ERecordLit>
@@ -60,7 +62,7 @@ Game plan:
          | <EFix>
          | <EFunAp>
          | <EUnaryOp>
-         | <EBinOp>
+         | <EBinaryOp>
          | <EMatch>
          | <EFieldAccess>
          | '(' <Expr> ')'
@@ -68,7 +70,11 @@ Game plan:
 
 <EUnitLit> ::= '(' ')'
 
-<ERecordLit> ::= '{' Ident '=' <Expr> (',' Ident '=' <Expr>)* '}' // TODO
+// TODO
+<ETupleLit> ::= '(' <Expr> (',' <Expr>)+ ')'
+
+// TODO
+<ERecordLit> ::= '{' Ident '=' <Expr> (',' Ident '=' <Expr>)* '}'
 
 <EType> ::= Ident
           | <EType> '->' <EType>
@@ -88,19 +94,19 @@ Game plan:
 <EUnaryOp> ::= '-' <Expr>
              | '!' <Expr>
 
-<EBinOp> ::= <Expr> '=' <Expr>
-           | <Expr> '!=' <Expr>
-           | <Expr> '<' <Expr>
-           | <Expr> '>' <Expr>
-           | <Expr> '<=' <Expr>
-           | <Expr> '>=' <Expr>
-           | <Expr> '&&' <Expr>
-           | <Expr> '||' <Expr>
-           | <Expr> '+' <Expr>
-           | <Expr> '-' <Expr>
-           | <Expr> '*' <Expr>
-           | <Expr> '/' <Expr>
-           | <Expr> '%' <Expr>
+<EBinaryOp> ::= <Expr> '=' <Expr>
+              | <Expr> '!=' <Expr>
+              | <Expr> '<' <Expr>
+              | <Expr> '>' <Expr>
+              | <Expr> '<=' <Expr>
+              | <Expr> '>=' <Expr>
+              | <Expr> '&&' <Expr>
+              | <Expr> '||' <Expr>
+              | <Expr> '+' <Expr>
+              | <Expr> '-' <Expr>
+              | <Expr> '*' <Expr>
+              | <Expr> '/' <Expr>
+              | <Expr> '%' <Expr>
 
 // TODO
 <EMatch> ::= 'match' <Expr> 'with' ('|')? <MatchCase> ('|' <MatchCase>)*

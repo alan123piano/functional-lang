@@ -31,6 +31,45 @@ public:
 		return body->subst(ident->value, value)->eval();
 	}
 
+	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
+		const Type* valueType = nullptr;
+		if (ident->typeAnn) {
+			if (!value->type_ana(ident->typeAnn, typeCtx)) {
+				if (reportErrors) {
+					std::ostringstream oss;
+					oss << "expected expression of type " << ident->typeAnn;
+					value->report_error_at_expr(oss.str());
+				}
+				return nullptr;
+			}
+			valueType = ident->typeAnn;
+		} else {
+			valueType = value->type_syn(typeCtx);
+			if (!valueType) { return nullptr; }
+		}
+		Context<const Type*> ctx = typeCtx;
+		ctx.push(ident->value, valueType);
+		return body->type_syn(ctx);
+	}
+
+	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
+		const Type* valueType = nullptr;
+		if (ident->typeAnn) {
+			if (!value->type_ana(ident->typeAnn, typeCtx)) {
+				return false;
+			}
+			valueType = ident->typeAnn;
+		} else {
+			valueType = value->type_syn(typeCtx);
+			if (!valueType) {
+				return false;
+			}
+		}
+		Context<const Type*> ctx = typeCtx;
+		ctx.push(ident->value, valueType);
+		return body->type_ana(type, ctx);
+	}
+
 	void print_impl(std::ostream& os) const override {
 		os << "(let ";
 		print(os, ident);

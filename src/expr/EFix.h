@@ -30,6 +30,24 @@ public:
 		return body->subst(ident->value, this)->eval();
 	}
 
+	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
+		if (ident->typeAnn) {
+			Context<const Type*> ctx = typeCtx;
+			ctx.push(ident->value, ident->typeAnn);
+			if (body->type_ana(ident->typeAnn, ctx)) {
+				return ident->typeAnn;
+			}
+		}
+		return nullptr;
+	}
+
+	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
+		if (type_syn(typeCtx, false) == type) { return true; }
+		Context<const Type*> ctx = typeCtx;
+		ctx.push(ident->value, type);
+		return body->type_ana(type, ctx);
+	}
+
 	void print_impl(std::ostream& os) const override {
 		os << "(fix ";
 		print(os, ident);

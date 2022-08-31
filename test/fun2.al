@@ -1,1 +1,1 @@
-(fun x -> x) (1 : int)
+(fun (x : int) -> x) (1 : int)

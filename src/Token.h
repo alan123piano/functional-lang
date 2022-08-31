@@ -6,7 +6,7 @@
 
 enum class TokenType {
 	Error, Eof,
-	Ident, IntLit, True, False,
+	Ident, IntLit, FloatLit, True, False,
 	Let, In, If, Then, Else,
 	Fun, Fix, Rec, Type, Match, With,
 	Equals, NotEquals, Not,
@@ -42,6 +42,9 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::IntLit:
 		os << "int_lit";
+		break;
+	case TokenType::FloatLit:
+		os << "float_lit";
 		break;
 	case TokenType::True:
 		os << "true";

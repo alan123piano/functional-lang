@@ -11,9 +11,10 @@
 #include <unordered_set>
 
 #include "Expr.h"
-#include "expr/EBinOp.h"
+#include "expr/EBinaryOp.h"
 #include "expr/EBoolLit.h"
 #include "expr/EFix.h"
+#include "expr/EFloatLit.h"
 #include "expr/EFun.h"
 #include "expr/EFunAp.h"
 #include "expr/EIf.h"
@@ -49,6 +50,7 @@ private:
 	std::deque<Token> tokens;
 	std::unordered_map<std::string, const Type*> typeTable = {
 		{"int", Type::Int},
+		{"float", Type::Float},
 		{"bool", Type::Bool},
 		{"unit", Type::Unit}
 	};
@@ -121,14 +123,27 @@ private:
 		case TokenType::IntLit: {
 			// IntLit
 			tokens.pop_front();
-			int value;
+			long long value;
 			try {
 				value = std::stoll(peek.value);
 			} catch (std::exception&) {
-				peek.report_error_at_token("int literal is too large for its type");
+				peek.report_error_at_token("invalid int literal");
 				return nullptr;
 			}
 			lhs = new EIntLit(peek.loc, nullptr, value);
+			break;
+		}
+		case TokenType::FloatLit: {
+			// FloatLit
+			tokens.pop_front();
+			double value;
+			try {
+				value = std::stod(peek.value);
+			} catch (std::exception&) {
+				peek.report_error_at_token("invalid double literal");
+				return nullptr;
+			}
+			lhs = new EFloatLit(peek.loc, nullptr, value);
 			break;
 		}
 		case TokenType::True: {
@@ -155,7 +170,7 @@ private:
 			if (tokens.front().type == TokenType::RightParen) {
 				// <EUnitLit>
 				tokens.pop_front();
-				lhs = new EUnitLit(peek.loc, nullptr);
+				lhs = new EUnitLit(peek.loc, Type::Unit);
 			} else {
 				// '(' <Expr> ')'
 				lhs = parse_expr();
@@ -187,6 +202,25 @@ private:
 			} while (tokens.front().type == TokenType::Comma);
 			if (!expect_token(TokenType::RightBrace)) { return nullptr; }
 			lhs = new ERecordLit(peek.loc, nullptr, fields);
+			// match type based on idents
+			for (auto& entry : typeTable) {
+				const TRecord* recordType = entry.second->as<TRecord>();
+				if (!recordType) { continue; }
+				if (recordType->fields.size() != fields.size()) { continue; }
+				bool isMatch = true;
+				for (auto& field : fields) {
+					if (recordType->fields.find(field.ident) == recordType->fields.end()) {
+						isMatch = false;
+						break;
+					}
+				}
+				if (!isMatch) { continue; }
+				lhs->typeAnn = recordType;
+			}
+			if (!lhs->typeAnn) {
+				peek.report_error_at_token("unable to match record type for identifier set");
+				return nullptr;
+			}
 			break;
 		}
 		case TokenType::Let: {
@@ -283,14 +317,14 @@ private:
 			case TokenType::Geq:
 			case TokenType::And:
 			case TokenType::Or: {
-				// handle <EBinOp>
+				// handle <EBinaryOp>
 				BindingPower bindingPower = BindingPower::BinOp(peek);
 				if (bindingPower.left < minBindingPower) { break; }
 				tokens.pop_front();
 				Expr* rhs = parse_expr(bindingPower.right);
 				if (!rhs) { break; }
 				matched = true;
-				lhs = new EBinOp(lhs->loc, nullptr, lhs, peek, rhs);
+				lhs = new EBinaryOp(lhs->loc, nullptr, lhs, peek, rhs);
 				break;
 			}
 			default: {
@@ -322,11 +356,12 @@ private:
 	EVar* parse_ident() {
 		Expr* expr = parse_expr(std::numeric_limits<int>::max());
 		if (!expr) { return nullptr; }
-		if (!expr->as<EVar>()) {
+		EVar* var = dynamic_cast<EVar*>(expr);
+		if (!var) {
 			expr->report_error_at_expr("expected identifier expression");
 			return nullptr;
 		}
-		return expr->as<EVar>();
+		return var;
 	}
 
 	// <EType>

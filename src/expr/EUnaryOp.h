@@ -22,26 +22,31 @@ public:
 	Value* eval() const override {
 		Value* rightValue = right->eval();
 		if (!rightValue) { return nullptr; }
-		switch (op.type) {
-		case TokenType::Minus: {
-			Value* result = rightValue->negate();
-			if (!result) {
-				right->report_error_at_expr("expression (of " + rightValue->type_name() + " type) does not define unary negation");
-				return nullptr;
+		Value* result = OpDefinition::unary_op_result(op.type, rightValue);
+		if (!result) {
+			throw std::runtime_error("Attempted to evaluate ill-typed unary operation");
+		}
+		return result;
+	}
+
+	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
+		// potential improvement: use (weaker) type analysis instead of synthesis?
+		const Type* rtype = right->type_syn(typeCtx);
+		if (!rtype) { return nullptr; }
+		const Type* result = OpDefinition::unary_op_type(op.type, rtype);
+		if (!result) {
+			if (reportErrors) {
+				std::ostringstream oss;
+				oss << "expression (of " << rtype << " type) does not define unary operation " << op;
+				right->report_error_at_expr(oss.str());
 			}
-			return result;
+			return nullptr;
 		}
-		case TokenType::Not: {
-			VBool* boolVal = right->as<VBool>();
-			if (!boolVal) {
-				right->report_error_at_expr("expected expression of boolean type in unary not; got type " + rightValue->type_name());
-				return nullptr;
-			}
-			return new VBool(!boolVal->value);
-		}
-		default:
-			throw std::runtime_error("Unimplemented UnaryOp evaluation case");
-		}
+		return result;
+	}
+
+	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
+		return type_syn(typeCtx, false) == type;
 	}
 
 	void print_impl(std::ostream& os) const override {

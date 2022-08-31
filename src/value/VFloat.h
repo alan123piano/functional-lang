@@ -2,17 +2,17 @@
 
 #include "../Value.h"
 
-class VBool : public Value {
+class VFloat : public Value {
 public:
-	bool value;
+	double value;
 
-	VBool(bool value) : value(value) {}
+	VFloat(double value) : value(value) {}
 
 	void print(std::ostream& os) const override {
-		os << (value ? "true" : "false");
+		os << value;
 	}
 
 	const Type* get_type() const override {
-		return Type::Bool;
+		return Type::Float;
 	}
 };

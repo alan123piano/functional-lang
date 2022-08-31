@@ -12,9 +12,7 @@ public:
 		os << fun;
 	}
 
-	std::string type_name() const {
-		// TODO: this typename should be qualified
-		// (ex. int -> int)
-		return "function";
+	const Type* get_type() const override {
+		return fun->type_syn(Context<const Type*>());
 	}
 };

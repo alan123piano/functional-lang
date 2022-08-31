@@ -9,6 +9,7 @@
 class Type {
 public:
 	static const Type* Int;
+	static const Type* Float;
 	static const Type* Bool;
 	static const Type* Unit;
 
@@ -41,6 +42,7 @@ public:
 };
 
 const Type* Type::Int = new TBase("int");
+const Type* Type::Float = new TBase("float");
 const Type* Type::Bool = new TBase("bool");
 const Type* Type::Unit = new TBase("unit");
 
@@ -150,3 +152,8 @@ public:
 		os << name;
 	}
 };
+
+std::ostream& operator<<(std::ostream& os, const Type* type) {
+	type->print(os);
+	return os;
+}
