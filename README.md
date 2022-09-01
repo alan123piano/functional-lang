@@ -9,7 +9,7 @@ Game plan:
 
 - `[X]` Implement lexer and parser
 
-- `[ ]` Add type inference and compile-time type checking
+- `[X]` Add type inference and compile-time type checking
 
 - `[X]` Write an interpreter that straightforwardly applies Lambda calculus rules to evaluate expressions
 
