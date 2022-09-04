@@ -11,6 +11,6 @@ public:
 	}
 
 	const Type* get_type() const override {
-		return Type::Unit;
+		return Type::Unit();
 	}
 };

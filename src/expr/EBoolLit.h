@@ -23,7 +23,7 @@ public:
 	}
 
 	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
-		return Type::Bool;
+		return Type::Bool();
 	}
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {

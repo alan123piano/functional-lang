@@ -42,7 +42,7 @@ public:
 	}
 
 	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
-		if (!test->type_ana(Type::Bool, typeCtx)) {
+		if (!test->type_ana(Type::Bool(), typeCtx)) {
 			if (reportErrors) {
 				test->report_error_at_expr("expected test expression of bool type");
 			}
@@ -65,7 +65,7 @@ public:
 	}
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
-		if (!test->type_ana(Type::Bool, typeCtx)) {
+		if (!test->type_ana(Type::Bool(), typeCtx)) {
 			test->report_error_at_expr("expected test expression of bool type");
 			return false;
 		}

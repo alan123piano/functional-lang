@@ -8,16 +8,16 @@
 
 class Type {
 public:
-	static const Type* Int;
-	static const Type* Float;
-	static const Type* Bool;
-	static const Type* Unit;
-
 	Type() {}
 	virtual ~Type() {}
 
 	virtual bool equal(const Type* other) const = 0;
 	virtual void print(std::ostream& os) const = 0;
+
+	static const Type* Int();
+	static const Type* Float();
+	static const Type* Bool();
+	static const Type* Unit();
 
 	template <typename T>
 	const T* as() const {
@@ -40,11 +40,6 @@ public:
 		os << name;
 	}
 };
-
-const Type* Type::Int = new TBase("int");
-const Type* Type::Float = new TBase("float");
-const Type* Type::Bool = new TBase("bool");
-const Type* Type::Unit = new TBase("unit");
 
 class TArrow : public Type {
 public:
@@ -153,7 +148,4 @@ public:
 	}
 };
 
-std::ostream& operator<<(std::ostream& os, const Type* type) {
-	type->print(os);
-	return os;
-}
+std::ostream& operator<<(std::ostream& os, const Type* type);

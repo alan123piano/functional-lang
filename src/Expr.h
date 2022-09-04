@@ -51,7 +51,4 @@ private:
 	virtual void print_impl(std::ostream& os) const = 0;
 };
 
-std::ostream& operator<<(std::ostream& os, const Expr* expr) {
-	Expr::print(os, expr);
-	return os;
-}
+std::ostream& operator<<(std::ostream& os, const Expr* expr);

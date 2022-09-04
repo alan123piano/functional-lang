@@ -13,6 +13,6 @@ public:
 	}
 
 	const Type* get_type() const override {
-		return Type::Int;
+		return Type::Int();
 	}
 };
