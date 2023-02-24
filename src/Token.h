@@ -8,13 +8,14 @@ enum class TokenType {
 	Error, Eof,
 	Ident, IntLit, FloatLit, True, False,
 	Let, In, If, Then, Else,
-	Fun, Fix, Rec, Type, Match, With,
+	Fun, Rec, Type, Match, With,
 	Equals, NotEquals, Not,
 	Lt, Gt, Leq, Geq, And, Or,
 	Plus, Minus, Mul, Div, Mod,
+	PlusDot, MinusDot, MulDot, DivDot,
 	LeftParen, RightParen,
 	Arrow, Colon, SingleQuote,
-	Bar /* '|' */, Comma,
+	Bar, Comma,
 	LeftBrace, RightBrace, Dot,
 	Semicolon
 };

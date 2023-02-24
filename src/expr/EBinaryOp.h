@@ -12,17 +12,25 @@ public:
 	Token op;
 	Expr* right;
 
-	EBinaryOp(const Location& loc, const Type* typeAnn, Expr* left, Token op, Expr* right)
-		: Expr(loc, typeAnn), left(left), op(op), right(right) {}
+	EBinaryOp(const Location& loc, Expr* left, Token op, Expr* right)
+		: Expr(loc), left(left), op(op), right(right) {}
+
+	void print(std::ostream& os) const override {
+		os << "(";
+		left->print(os);
+		os << " " << op << " ";
+		right->print(os);
+		os << ")";
+	}
 
 	Expr* copy() const override {
-		return new EBinaryOp(loc, typeAnn, left->copy(), op, right->copy());
+		return new EBinaryOp(loc, left->copy(), op, right->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newLeft = left->subst(subIdent, subExpr);
 		Expr* newRight = right->subst(subIdent, subExpr);
-		return new EBinaryOp(loc, typeAnn, newLeft, op, newRight);
+		return new EBinaryOp(loc, newLeft, op, newRight);
 	}
 
 	Value* eval() const override {
@@ -58,13 +66,5 @@ public:
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		return type_syn(typeCtx, false) == type;
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << "(";
-		print(os, left);
-		os << " " << op << " ";
-		print(os, right);
-		os << ")";
 	}
 };

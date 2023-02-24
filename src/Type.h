@@ -125,7 +125,6 @@ public:
 
 	std::string name;
 	std::unordered_map<std::string, const Type*> fields;
-	std::vector<std::string> idents; // original order of idents
 
 	TRecord(std::string name, const std::vector<Field>& orderedFields)
 		: name(std::move(name)) {
@@ -146,6 +145,9 @@ public:
 	void print(std::ostream& os) const override {
 		os << name;
 	}
+
+private:
+	std::vector<std::string> idents; // original order of idents
 };
 
 std::ostream& operator<<(std::ostream& os, const Type* type);

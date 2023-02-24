@@ -10,15 +10,11 @@ public:
 	};
 
 	std::unordered_map<std::string, Expr*> fields;
-	std::vector<std::string> idents; // original order of idents
+	const Type* type;
 
-	// for Record literals, a type is always expected to be provided
-	// if the Record literal expr has a type annotation, that will be used
-	// instead, the type must be inferred from the fields
-	// this constructor verifies that the field identifiers are consistent,
-	// but does NOT validate types of field expressions
-	ERecordLit(const Location& loc, const Type* typeAnn, const std::vector<Field>& orderedFields)
-		: Expr(loc, typeAnn) {
+	// a type must always be provided (typically inferred from identifier set)
+	ERecordLit(const Location& loc, const std::vector<Field>& orderedFields, const Type* type)
+		: Expr(loc), type(type) {
 		for (const Field& field : orderedFields) {
 			if (fields.find(field.ident) != fields.end()) {
 				throw std::runtime_error("Duplicate field in record literal expression");
@@ -28,12 +24,26 @@ public:
 		}
 	}
 
+	void print(std::ostream& os) const override {
+		os << "{ ";
+		bool printComma = false;
+		for (const std::string& ident : idents) {
+			if (printComma) {
+				os << ", ";
+			}
+			printComma = true; // print comma after first
+			os << ident << " = ";
+			fields.at(ident)->print(os);
+		}
+		os << " }";
+	}
+
 	Expr* copy() const override {
 		std::vector<Field> fieldsCopy;
 		for (const std::string& ident : idents) {
 			fieldsCopy.push_back({ ident, fields.at(ident)->copy() });
 		}
-		return new ERecordLit(loc, typeAnn, fieldsCopy);
+		return new ERecordLit(loc, fieldsCopy, type);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
@@ -41,7 +51,7 @@ public:
 		for (const std::string& ident : idents) {
 			fieldsCopy.push_back({ ident, fields.at(ident)->subst(subIdent, subExpr) });
 		}
-		return new ERecordLit(loc, typeAnn, fieldsCopy);
+		return new ERecordLit(loc, fieldsCopy, type);
 	}
 
 	Value* eval() const override {
@@ -51,21 +61,23 @@ public:
 	}
 
 	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
-		if (!typeAnn) {
-			if (reportErrors) {
-				report_error_at_expr("failed to synthesize record type");
-			}
-			return nullptr;
+		/*if (!typeAnn) {
+		    if (reportErrors) {
+		        report_error_at_expr("failed to synthesize record type");
+		    }
+		    return nullptr;
 		}
 		if (!type_ana(typeAnn, typeCtx)) {
-			if (reportErrors) {
-				std::ostringstream oss;
-				oss << "expression does not analyze against type " << typeAnn;
-				report_error_at_expr(oss.str());
-			}
-			return nullptr;
+		    if (reportErrors) {
+		        std::ostringstream oss;
+		        oss << "expression does not analyze against type " << typeAnn;
+		        report_error_at_expr(oss.str());
+		    }
+		    return nullptr;
 		}
-		return typeAnn;
+		return typeAnn;*/
+		// TODO
+		return nullptr;
 	}
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
@@ -80,17 +92,6 @@ public:
 		return true;
 	}
 
-	void print_impl(std::ostream& os) const override {
-		os << "{ ";
-		bool printComma = false;
-		for (const std::string& ident : idents) {
-			if (printComma) {
-				os << ", ";
-			}
-			printComma = true; // print comma after first
-			os << ident << " = ";
-			print(os, fields.at(ident));
-		}
-		os << " }";
-	}
+private:
+	std::vector<std::string> idents; // original order of idents
 };

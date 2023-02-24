@@ -4,17 +4,22 @@
 
 class EVar : public Expr {
 public:
-	std::string value;
+	std::string ident;
+	const Type* typeAnn;
 
-	EVar(const Location& loc, const Type* typeAnn, std::string value)
-		: Expr(loc, typeAnn), value(std::move(value)) {}
+	EVar(const Location& loc, std::string ident, const Type* typeAnn)
+		: Expr(loc), ident(std::move(ident)), typeAnn(typeAnn) {}
+
+	void print(std::ostream& os) const override {
+		os << ident;
+	}
 
 	Expr* copy() const override {
-		return new EVar(loc, typeAnn, value);
+		return new EVar(loc, ident, typeAnn);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
-		if (value == subIdent) {
+		if (ident == subIdent) {
 			return subExpr->copy();
 		} else {
 			return copy();
@@ -22,15 +27,15 @@ public:
 	}
 
 	Value* eval() const override {
-		report_error_at_expr("unbound variable '" + value + "'");
+		report_error_at_expr("unbound variable '" + ident + "'");
 		return nullptr;
 	}
 
 	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
-		const Type* type = typeCtx.get(value);
+		const Type* type = typeCtx.get(ident);
 		if (!type) {
 			if (reportErrors) {
-				report_error_at_expr("unbound variable " + value);
+				report_error_at_expr("unbound variable " + ident);
 			}
 			return nullptr;
 		} else {
@@ -40,9 +45,5 @@ public:
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		return type_syn(typeCtx, false) == type;
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << value;
 	}
 };

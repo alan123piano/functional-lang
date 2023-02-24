@@ -7,16 +7,21 @@ public:
 	Token op;
 	Expr* right;
 
-	EUnaryOp(const Location& loc, const Type* typeAnn, Token op, Expr* right)
-		: Expr(loc, typeAnn), op(op), right(right) {}
+	EUnaryOp(const Location& loc, Token op, Expr* right)
+		: Expr(loc), op(op), right(right) {}
+
+	void print(std::ostream& os) const override {
+		os << op;
+		right->print(os);
+	}
 
 	Expr* copy() const override {
-		return new EUnaryOp(loc, typeAnn, op, right->copy());
+		return new EUnaryOp(loc, op, right->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newRight = right->subst(subIdent, subExpr);
-		return new EUnaryOp(loc, typeAnn, op, newRight);
+		return new EUnaryOp(loc, op, newRight);
 	}
 
 	Value* eval() const override {
@@ -47,10 +52,5 @@ public:
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		return type_syn(typeCtx, false) == type;
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << op;
-		print(os, right);
 	}
 };

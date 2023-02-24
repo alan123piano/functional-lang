@@ -20,29 +20,6 @@ public:
 		return *this;
 	}
 
-	void print(std::ostream& os) const {
-		std::vector<std::pair<std::string, std::vector<T>>> list;
-		list.reserve(ctxImpl.size());
-		for (auto it = ctxImpl.begin(); it != ctxImpl.end(); ++it) {
-			if (it->second.size() > 0) {
-				list.push_back(*it);
-			}
-		}
-		std::sort(list.begin(), list.end(), [](const std::pair<std::string, std::vector<T>>& a, const std::pair<std::string, std::vector<T>>& b) -> bool {
-			return a.first < b.first;
-		});
-		os << "[";
-		bool printComma = false;
-		for (auto pair : list) {
-			if (printComma) {
-				os << ", ";
-			}
-			os << pair.first;
-			printComma = true;
-		}
-		os << "]";
-	}
-
 	T get(const std::string& ident) const {
 		auto it = ctxImpl.find(ident);
 		if (it == ctxImpl.end() || it->second.empty()) {
@@ -62,9 +39,3 @@ public:
 private:
 	ContextImpl ctxImpl;
 };
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, const Context<T>& ctx) {
-	ctx.print(os);
-	return os;
-}

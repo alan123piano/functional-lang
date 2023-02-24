@@ -55,58 +55,66 @@ Game plan:
          | FloatLit
          | BoolLit
          | <EUnitLit>
+         | '(' <Expr> ')'
+         | <ETupleLit>
          | <ERecordLit>
          | <ELet>
          | <EIf>
          | <EFun>
-         | <EFix>
          | <EFunAp>
          | <EUnaryOp>
          | <EBinaryOp>
          | <EMatch>
          | <EFieldAccess>
-         | '(' <Expr> ')'
-         | <Expr> ':' <EType>
 
 <EUnitLit> ::= '(' ')'
 
-// TODO
 <ETupleLit> ::= '(' <Expr> (',' <Expr>)+ ')'
 
-// TODO
 <ERecordLit> ::= '{' Ident '=' <Expr> (',' Ident '=' <Expr>)* '}'
+
+// TODO
+<EVar> ::= Ident
+         | '(' Ident ':' <EType> ')'
 
 <EType> ::= Ident
           | <EType> '->' <EType>
           | <EType> '*' <EType>
           | '(' <EType> ')'
 
-<ELet> ::= 'let' <Expr> '=' <Expr> 'in' <Expr>
+// TODO: EVar, function expressions
+<ELet> ::= 'let' ('rec')? <ELetBody> ('and' <ELetBody>)*
+
+<ELetBody> ::= (<EVar>)+ (':' <EType>)? '=' <Expr> 'in' <Expr>
 
 <EIf> ::= 'if' <Expr> 'then' <Expr> 'else' <Expr>
 
-<EFun> ::= 'fun' <Expr> '->' <Expr>
-
-<EFix> ::= 'fix' <Expr> '->' <Expr>
+<EFun> ::= 'fun' <EVar> '->' <Expr> // TODO
 
 <EFunAp> ::= <Expr> <Expr>
 
-<EUnaryOp> ::= '-' <Expr>
-             | '!' <Expr>
+<EUnaryOp> ::= '!' <Expr>   // bool -> bool
+             | '-' <Expr>   // int -> int
+             | '-.' <Expr>  // float -> float
 
-<EBinaryOp> ::= <Expr> '=' <Expr>
-              | <Expr> '!=' <Expr>
-              | <Expr> '<' <Expr>
-              | <Expr> '>' <Expr>
-              | <Expr> '<=' <Expr>
-              | <Expr> '>=' <Expr>
-              | <Expr> '&&' <Expr>
-              | <Expr> '||' <Expr>
-              | <Expr> '+' <Expr>
-              | <Expr> '-' <Expr>
-              | <Expr> '*' <Expr>
-              | <Expr> '/' <Expr>
-              | <Expr> '%' <Expr>
+<EBinaryOp> ::= <Expr> '=' <Expr>   // 'a -> 'a -> bool
+              | <Expr> '!=' <Expr>  // 'a -> 'a -> bool
+              | <Expr> '<' <Expr>   // 'a -> 'a -> bool
+              | <Expr> '>' <Expr>   // 'a -> 'a -> bool
+              | <Expr> '<=' <Expr>  // 'a -> 'a -> bool
+              | <Expr> '>=' <Expr>  // 'a -> 'a -> bool
+              | <Expr> '&&' <Expr>  // bool -> bool -> bool
+              | <Expr> '||' <Expr>  // bool -> bool -> bool
+              | <Expr> '+' <Expr>   // int -> int -> int
+              | <Expr> '-' <Expr>   // int -> int -> int
+              | <Expr> '*' <Expr>   // int -> int -> int
+              | <Expr> '/' <Expr>   // int -> int -> int
+              | <Expr> '%' <Expr>   // int -> int -> int
+// TODO
+              | <Expr> '+.' <Expr>   // float -> float -> float
+              | <Expr> '-.' <Expr>   // float -> float -> float
+              | <Expr> '*.' <Expr>   // float -> float -> float
+              | <Expr> '/.' <Expr>   // float -> float -> float
 
 // TODO
 <EMatch> ::= 'match' <Expr> 'with' ('|')? <MatchCase> ('|' <MatchCase>)*

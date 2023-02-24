@@ -1,64 +1,80 @@
 #pragma once
 
+#include <vector>
 #include "../Expr.h"
 #include "EVar.h"
 
 class ELet : public Expr {
 public:
-	EVar* ident;
+	struct LetBody {
+
+	};
+
+	bool rec;
+	EVar* var;
 	Expr* value;
 	Expr* body;
 
-	ELet(const Location& loc, const Type* typeAnn, EVar* ident, Expr* value, Expr* body)
-		: Expr(loc, typeAnn), ident(ident), value(value), body(body) {}
+	ELet(const Location& loc, bool rec, EVar* var, Expr* value, Expr* body)
+		: Expr(loc), rec(rec), var(var), value(value), body(body) {}
+
+	void print(std::ostream& os) const override {
+		os << "(let ";
+		var->print(os);
+		os << " = ";
+		value->print(os);
+		os << " in ";
+		body->print(os);
+		os << ")";
+	}
 
 	Expr* copy() const override {
-		return new ELet(loc, typeAnn, ident, value->copy(), body->copy());
+		return new ELet(loc, rec, var, value->copy(), body->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newValue = value->subst(subIdent, subExpr);
 		Expr* newBody;
-		if (subIdent != ident->value) {
+		if (subIdent != var->ident) {
 			newBody = body->subst(subIdent, subExpr);
 		} else {
 			newBody = body->copy();
 		}
-		return new ELet(loc, typeAnn, ident, newValue, newBody);
+		return new ELet(loc, rec, var, newValue, newBody);
 	}
 
 	Value* eval() const override {
-		return body->subst(ident->value, value)->eval();
+		return body->subst(var->ident, value)->eval();
 	}
 
 	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
 		const Type* valueType = nullptr;
-		if (ident->typeAnn) {
-			if (!value->type_ana(ident->typeAnn, typeCtx)) {
+		if (var->typeAnn) {
+			if (!value->type_ana(var->typeAnn, typeCtx)) {
 				if (reportErrors) {
 					std::ostringstream oss;
-					oss << "expected expression of type " << ident->typeAnn;
+					oss << "expected expression of type " << var->typeAnn;
 					value->report_error_at_expr(oss.str());
 				}
 				return nullptr;
 			}
-			valueType = ident->typeAnn;
+			valueType = var->typeAnn;
 		} else {
 			valueType = value->type_syn(typeCtx);
 			if (!valueType) { return nullptr; }
 		}
 		Context<const Type*> ctx = typeCtx;
-		ctx.push(ident->value, valueType);
+		ctx.push(var->ident, valueType);
 		return body->type_syn(ctx);
 	}
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		const Type* valueType = nullptr;
-		if (ident->typeAnn) {
-			if (!value->type_ana(ident->typeAnn, typeCtx)) {
+		if (var->typeAnn) {
+			if (!value->type_ana(var->typeAnn, typeCtx)) {
 				return false;
 			}
-			valueType = ident->typeAnn;
+			valueType = var->typeAnn;
 		} else {
 			valueType = value->type_syn(typeCtx);
 			if (!valueType) {
@@ -66,17 +82,7 @@ public:
 			}
 		}
 		Context<const Type*> ctx = typeCtx;
-		ctx.push(ident->value, valueType);
+		ctx.push(var->ident, valueType);
 		return body->type_ana(type, ctx);
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << "(let ";
-		print(os, ident);
-		os << " = ";
-		print(os, value);
-		os << " in ";
-		print(os, body);
-		os << ")";
 	}
 };

@@ -5,11 +5,15 @@
 
 class EUnitLit : public Expr {
 public:
-	EUnitLit(const Location& loc, const Type* typeAnn)
-		: Expr(loc, typeAnn) {}
+	EUnitLit(const Location& loc)
+		: Expr(loc) {}
+
+	void print(std::ostream& os) const override {
+		os << "()";
+	}
 
 	Expr* copy() const override {
-		return new EUnitLit(loc, typeAnn);
+		return new EUnitLit(loc);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
@@ -26,9 +30,5 @@ public:
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		return type_syn(typeCtx, false) == type;
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << "()";
 	}
 };

@@ -8,18 +8,28 @@ public:
 	Expr* body;
 	Expr* elseBody;
 
-	EIf(const Location& loc, const Type* typeAnn, Expr* test, Expr* body, Expr* elseBody)
-		: Expr(loc, typeAnn), test(test), body(body), elseBody(elseBody) {}
+	EIf(const Location& loc, Expr* test, Expr* body, Expr* elseBody)
+		: Expr(loc), test(test), body(body), elseBody(elseBody) {}
+
+	void print(std::ostream& os) const override {
+		os << "(if ";
+		test->print(os);
+		os << " then ";
+		body->print(os);
+		os << " else ";
+		elseBody->print(os);
+		os << ")";
+	}
 
 	Expr* copy() const override {
-		return new EIf(loc, typeAnn, test->copy(), body->copy(), elseBody->copy());
+		return new EIf(loc, test->copy(), body->copy(), elseBody->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newTest = test->subst(subIdent, subExpr);
 		Expr* newBody = body->subst(subIdent, subExpr);
 		Expr* newElseBody = elseBody->subst(subIdent, subExpr);
-		return new EIf(loc, typeAnn, newTest, newBody, newElseBody);
+		return new EIf(loc, newTest, newBody, newElseBody);
 	}
 
 	Value* eval() const override {
@@ -70,15 +80,5 @@ public:
 			return false;
 		}
 		return body->type_ana(type, typeCtx) && elseBody->type_ana(type, typeCtx);
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << "(if ";
-		print(os, test);
-		os << " then ";
-		print(os, body);
-		os << " else ";
-		print(os, elseBody);
-		os << ")";
 	}
 };

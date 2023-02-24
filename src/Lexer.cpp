@@ -39,6 +39,14 @@ Token Lexer::next() {
 		return { {&source, line, colStart, col}, TokenType::Or, "" };
 	} else if (try_consume("->")) {
 		return { {&source, line, colStart, col}, TokenType::Arrow, "" };
+	} else if (try_consume("+.")) {
+		return { {&source, line, colStart, col}, TokenType::PlusDot, "" };
+	} else if (try_consume("-.")) {
+		return { {&source, line, colStart, col}, TokenType::MinusDot, "" };
+	} else if (try_consume("*.")) {
+		return { {&source, line, colStart, col}, TokenType::MulDot, "" };
+	} else if (try_consume("/.")) {
+		return { {&source, line, colStart, col}, TokenType::DivDot, "" };
 	} else if (try_consume("=")) {
 		return { {&source, line, colStart, col}, TokenType::Equals, "" };
 	} else if (try_consume("!")) {
@@ -93,8 +101,6 @@ Token Lexer::next() {
 		return { {&source, line, colStart, col}, TokenType::Else, "" };
 	} else if (try_consume("fun")) {
 		return { {&source, line, colStart, col}, TokenType::Fun, "" };
-	} else if (try_consume("fix")) {
-		return { {&source, line, colStart, col}, TokenType::Fix, "" };
 	} else if (try_consume("rec")) {
 		return { {&source, line, colStart, col}, TokenType::Rec, "" };
 	} else if (try_consume("type")) {

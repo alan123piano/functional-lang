@@ -8,17 +8,25 @@ public:
 	Expr* fun;
 	Expr* arg;
 
-	EFunAp(const Location& loc, const Type* typeAnn, Expr* fun, Expr* arg)
-		: Expr(loc, typeAnn), fun(fun), arg(arg) {}
+	EFunAp(const Location& loc, Expr* fun, Expr* arg)
+		: Expr(loc), fun(fun), arg(arg) {}
+
+	void print(std::ostream& os) const override {
+		os << "(";
+		fun->print(os);
+		os << " ";
+		arg->print(os);
+		os << ")";
+	}
 
 	Expr* copy() const override {
-		return new EFunAp(loc, typeAnn, fun->copy(), arg->copy());
+		return new EFunAp(loc, fun->copy(), arg->copy());
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
 		Expr* newFun = fun->subst(subIdent, subExpr);
 		Expr* newArg = arg->subst(subIdent, subExpr);
-		return new EFunAp(loc, typeAnn, newFun, newArg);
+		return new EFunAp(loc, newFun, newArg);
 	}
 
 	Value* eval() const override {
@@ -34,7 +42,7 @@ public:
 		}
 		Value* right = arg->eval();
 		if (!right) { return nullptr; }
-		return funExpr->body->subst(funExpr->ident->value, arg)->eval();
+		return funExpr->body->subst(funExpr->var->ident, arg)->eval();
 	}
 
 	const Type* type_syn(const Context<const Type*>& typeCtx, bool reportErrors = true) const override {
@@ -62,13 +70,5 @@ public:
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		return type_syn(typeCtx, false) == type;
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << "(";
-		print(os, fun);
-		os << " ";
-		print(os, arg);
-		os << ")";
 	}
 };

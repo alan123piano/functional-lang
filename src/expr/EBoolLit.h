@@ -7,11 +7,15 @@ class EBoolLit : public Expr {
 public:
 	bool value;
 
-	EBoolLit(const Location& loc, const Type* typeAnn, bool value)
-		: Expr(loc, typeAnn), value(value) {}
+	EBoolLit(const Location& loc, bool value)
+		: Expr(loc), value(value) {}
+
+	void print(std::ostream& os) const override {
+		os << (value ? "true" : "false");
+	}
 
 	Expr* copy() const override {
-		return new EBoolLit(loc, typeAnn, value);
+		return new EBoolLit(loc, value);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
@@ -28,9 +32,5 @@ public:
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		return type_syn(typeCtx, false) == type;
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << (value ? "true" : "false");
 	}
 };

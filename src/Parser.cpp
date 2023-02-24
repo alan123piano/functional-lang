@@ -1,65 +1,73 @@
 #include "Parser.h"
 
-Expr* Parser::parse_expr(int minBindingPower, bool reportErrors) {
-	Token peek = tokens.front();
+Expr* Parser::parse_expr(int minBindingPower, bool expectedExpr) {
 	Expr* lhs = nullptr;
-	switch (peek.type) {
+	switch (peek().type) {
+	case TokenType::Ident: {
+		Token token = pop_token();
+		lhs = new EVar(token.loc, token.value, nullptr);
+		break;
+	}
 	case TokenType::IntLit: {
-		// IntLit
-		tokens.pop_front();
+		Token token = pop_token();
 		long long value;
 		try {
-			value = std::stoll(peek.value);
+			value = std::stoll(token.value);
 		} catch (std::exception&) {
-			peek.report_error_at_token("invalid int literal");
+			token.report_error_at_token("invalid int literal");
 			return nullptr;
 		}
-		lhs = new EIntLit(peek.loc, nullptr, value);
+		lhs = new EIntLit(token.loc, value);
 		break;
 	}
 	case TokenType::FloatLit: {
-		// FloatLit
-		tokens.pop_front();
+		Token token = pop_token();
 		double value;
 		try {
-			value = std::stod(peek.value);
+			value = std::stod(token.value);
 		} catch (std::exception&) {
-			peek.report_error_at_token("invalid double literal");
+			token.report_error_at_token("invalid double literal");
 			return nullptr;
 		}
-		lhs = new EFloatLit(peek.loc, nullptr, value);
+		lhs = new EFloatLit(token.loc, value);
 		break;
 	}
 	case TokenType::True: {
-		// BoolLit(true)
-		tokens.pop_front();
-		lhs = new EBoolLit(peek.loc, nullptr, true);
+		Token token = pop_token();
+		lhs = new EBoolLit(token.loc, true);
 		break;
 	}
 	case TokenType::False: {
-		// BoolLit(false)
-		tokens.pop_front();
-		lhs = new EBoolLit(peek.loc, nullptr, false);
-		break;
-	}
-	case TokenType::Ident: {
-		// Ident
-		tokens.pop_front();
-		lhs = new EVar(peek.loc, nullptr, peek.value);
+		Token token = pop_token();
+		lhs = new EBoolLit(token.loc, false);
 		break;
 	}
 	case TokenType::LeftParen: {
-		// '(' <Expr> ')' or <EUnitLit>
-		tokens.pop_front();
-		if (tokens.front().type == TokenType::RightParen) {
+		// <EUnitLit>, '(' <Expr> ')', or <ETupleLit>
+		Token leftParen = pop_token();
+		if (peek().type == TokenType::RightParen) {
 			// <EUnitLit>
-			tokens.pop_front();
-			lhs = new EUnitLit(peek.loc, Type::Unit());
+			pop_token();
+			lhs = new EUnitLit(leftParen.loc);
 		} else {
-			// '(' <Expr> ')'
-			lhs = parse_expr();
-			if (!lhs) { return nullptr; }
+			// '(' <Expr> ')' or <ETupleLit>
+			std::vector<Expr*> fields;
+			while (true) {
+				Expr* expr = parse_expr();
+				if (!expr) { break; }
+				fields.push_back(expr);
+				if (peek().type != TokenType::Comma) { break; }
+			}
 			if (!expect_token(TokenType::RightParen)) { return nullptr; }
+			if (fields.empty()) {
+				return nullptr;
+			} else if (fields.size() == 1) {
+				// '(' <Expr> ')'
+				lhs = fields[0];
+			} else {
+				// <ETupleLit>
+				lhs = new ETupleLit(leftParen.loc, std::move(fields));
+			}
 		}
 		break;
 	}
@@ -67,26 +75,27 @@ Expr* Parser::parse_expr(int minBindingPower, bool reportErrors) {
 		// <ERecordLit>
 		std::vector<ERecordLit::Field> fields;
 		std::unordered_set<std::string> identsUsed; // prevent duplicate idents
+		Token leftBrace = peek();
 		// parse fields
 		do {
 			// on the first loop, this will pop the LeftBrace;
 			// on subsequent loops, it will pop the comma
 			// (kinda hacky, but reduces code duplication)
-			tokens.pop_front();
-			std::optional<Token> ident = expect_token(TokenType::Ident);
+			pop_token();
+			auto ident = expect_token(TokenType::Ident);
 			if (!ident) { return nullptr; }
 			if (!expect_token(TokenType::Equals)) { return nullptr; }
 			Expr* expr = parse_expr();
 			if (!expr) { return nullptr; }
 			if (!identsUsed.insert(ident->value).second) {
-				peek.report_error_at_token("duplicate record field '" + ident->value + "'");
+				ident->report_error_at_token("duplicate record field '" + ident->value + "'");
 				return nullptr;
 			}
 			fields.push_back({ ident->value, expr });
 		} while (tokens.front().type == TokenType::Comma);
 		if (!expect_token(TokenType::RightBrace)) { return nullptr; }
-		lhs = new ERecordLit(peek.loc, nullptr, fields);
 		// match type based on idents
+		const Type* type = nullptr;
 		for (auto& entry : typeTable) {
 			const TRecord* recordType = entry.second->as<TRecord>();
 			if (!recordType) { continue; }
@@ -99,31 +108,40 @@ Expr* Parser::parse_expr(int minBindingPower, bool reportErrors) {
 				}
 			}
 			if (!isMatch) { continue; }
-			lhs->typeAnn = recordType;
+			type = recordType;
 		}
-		if (!lhs->typeAnn) {
-			peek.report_error_at_token("unable to match record type for identifier set");
+		if (!type) {
+			leftBrace.report_error_at_token("unable to match type to record literal from identifier set");
 			return nullptr;
 		}
+		if (!expect_token(TokenType::RightBrace)) { return nullptr; }
+		lhs = new ERecordLit(leftBrace.loc, std::move(fields), type);
 		break;
 	}
 	case TokenType::Let: {
 		// <ELet>
-		tokens.pop_front();
-		EVar* varExpr = parse_ident();
-		if (!varExpr) { return nullptr; }
+		Token let = pop_token();
+		bool rec;
+		if (peek().type == TokenType::Rec) {
+			rec = true;
+			pop_token();
+		} else {
+			rec = false;
+		}
+		EVar* var = parse_var();
+		if (!var) { return nullptr; }
 		if (!expect_token(TokenType::Equals)) { return nullptr; }
 		Expr* value = parse_expr();
 		if (!value) { return nullptr; }
 		if (!expect_token(TokenType::In)) { return nullptr; }
 		Expr* body = parse_expr();
 		if (!body) { return nullptr; }
-		lhs = new ELet(peek.loc, nullptr, varExpr, value, body);
+		lhs = new ELet(let.loc, rec, var, value, body);
 		break;
 	}
 	case TokenType::If: {
 		// <EIf>
-		tokens.pop_front();
+		Token ifToken = pop_token();
 		Expr* test = parse_expr();
 		if (!test) { return nullptr; }
 		if (!expect_token(TokenType::Then)) { return nullptr; }
@@ -132,7 +150,7 @@ Expr* Parser::parse_expr(int minBindingPower, bool reportErrors) {
 		if (!expect_token(TokenType::Else)) { return nullptr; }
 		Expr* elseBody = parse_expr();
 		if (!elseBody) { return nullptr; }
-		lhs = new EIf(peek.loc, nullptr, test, body, elseBody);
+		lhs = new EIf(ifToken.loc, test, body, elseBody);
 		break;
 	}
 	case TokenType::Fun: {
@@ -175,7 +193,7 @@ Expr* Parser::parse_expr(int minBindingPower, bool reportErrors) {
 	}
 	default: {
 		// unexpected token
-		if (reportErrors) {
+		if (expectedExpr) {
 			std::ostringstream oss;
 			oss << "expected expression; got token '" << peek.type << "'";
 			peek.report_error_at_token(oss.str());
@@ -226,28 +244,33 @@ Expr* Parser::parse_expr(int minBindingPower, bool reportErrors) {
 		}
 		if (!matched) { break; }
 	}
-	// check for type annotation
-	if (tokens.front().type == TokenType::Colon) {
-		tokens.pop_front();
-		const Type* typeAnn = parse_type_expr();
-		if (!typeAnn) { return nullptr; }
-		lhs->typeAnn = typeAnn;
-	}
 	return lhs;
 }
 
-EVar* Parser::parse_ident() {
-	Expr* expr = parse_expr(std::numeric_limits<int>::max());
-	if (!expr) { return nullptr; }
-	EVar* var = dynamic_cast<EVar*>(expr);
-	if (!var) {
-		expr->report_error_at_expr("expected identifier expression");
+EVar* Parser::parse_var() {
+	switch (peek().type) {
+	case TokenType::Ident: {
+		Token ident = pop_token();
+		return new EVar(ident.loc, ident.value);
+	}
+	case TokenType::LeftParen: {
+		Token paren = pop_token();
+		auto ident = expect_token(TokenType::Ident);
+		if (!ident) { return nullptr; }
+		expect_token(TokenType::Colon);
+		const Type* typeAnn = parse_type_expr();
+		if (!typeAnn) { return nullptr; }
+		expect_token(TokenType::RightParen);
+		return new EVar(paren.loc, ident->value, typeAnn);
+	}
+	default: {
+		peek().report_error_at_token("expected variable expression");
 		return nullptr;
 	}
-	return var;
+	}
 }
 
-const Type* Parser::parse_type_expr(bool reportErrors) {
+const Type* parse_type_expr(bool expectedType) {
 	Token peek;
 	std::vector<const Type*> types;
 	while (true) {
@@ -276,7 +299,7 @@ const Type* Parser::parse_type_expr(bool reportErrors) {
 	// convert parsed types vector into single type or tuple, or report error
 	const Type* lhs;
 	if (types.size() == 0) {
-		if (reportErrors) {
+		if (expectedType) {
 			std::ostringstream oss;
 			oss << "expected type identifier; got token '" << peek.type << "'";
 			peek.report_error_at_token(oss.str());

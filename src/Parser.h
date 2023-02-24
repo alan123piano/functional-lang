@@ -13,7 +13,6 @@
 #include "Expr.h"
 #include "expr/EBinaryOp.h"
 #include "expr/EBoolLit.h"
-#include "expr/EFix.h"
 #include "expr/EFloatLit.h"
 #include "expr/EFun.h"
 #include "expr/EFunAp.h"
@@ -21,6 +20,7 @@
 #include "expr/EIntLit.h"
 #include "expr/ELet.h"
 #include "expr/ERecordLit.h"
+#include "expr/ETupleLit.h"
 #include "expr/EUnaryOp.h"
 #include "expr/EUnitLit.h"
 #include "expr/EVar.h"
@@ -43,6 +43,9 @@ public:
 		Expr* expr = parse_expr();
 		if (expr) {
 			expect_token(TokenType::Eof);
+		}
+		if (expr && !tokens.empty()) {
+			throw std::runtime_error("Incomplete parse");
 		}
 		return expr;
 	}
@@ -71,10 +74,14 @@ private:
 			case TokenType::Mul:
 			case TokenType::Div:
 			case TokenType::Mod:
+			case TokenType::MulDot:
+			case TokenType::DivDot:
 				return {50, 51};
 				break;
 			case TokenType::Plus:
 			case TokenType::Minus:
+			case TokenType::PlusDot:
+			case TokenType::MinusDot:
 				return {40, 41};
 				break;
 			case TokenType::Equals:
@@ -98,32 +105,36 @@ private:
 	};
 
 	// Helpers
+	const Token& peek() const {
+		return tokens.front();
+	}
+	Token pop_token() {
+		Token token = tokens.front();
+		tokens.pop_front();
+		return token;
+	}
 	std::optional<Token> expect_token(TokenType tokenType) {
-		if (tokens.empty()) {
-			throw std::runtime_error("unexpected end of token buffer");
+		Token front = tokens.front();
+		if (front.type != tokenType) {
+			std::ostringstream oss;
+			oss << "expected token '" << tokenType << "'; got '" << front << "'";
+			front.report_error_at_token(oss.str());
+			return std::nullopt;
 		} else {
-			Token front = tokens.front();
-			if (front.type != tokenType) {
-				std::ostringstream oss;
-				oss << "expected token '" << tokenType << "'; got '" << front << "'";
-				front.report_error_at_token(oss.str());
-				return std::nullopt;
-			} else {
-				tokens.pop_front();
-				return front;
-			}
+			tokens.pop_front();
+			return front;
 		}
 	}
 
 	// Non-terminals
 	// <Expr>
-	Expr* parse_expr(int minBindingPower = 0, bool reportErrors = true);
+	Expr* parse_expr(int minBindingPower = 0, bool expectedExpr = true);
 
 	// <EVar>
-	EVar* parse_ident();
+	EVar* parse_var();
 
 	// <EType>
-	const Type* parse_type_expr(bool reportErrors = true);
+	const Type* parse_type_expr(bool expectedType = true);
 
 	// type [name] = [type]
 	std::optional<std::pair<std::string, Type*>> parse_type_decl();

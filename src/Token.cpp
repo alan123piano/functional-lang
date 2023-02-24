@@ -41,9 +41,6 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 	case TokenType::Fun:
 		os << "fun";
 		break;
-	case TokenType::Fix:
-		os << "fix";
-		break;
 	case TokenType::Rec:
 		os << "rec";
 		break;
@@ -97,6 +94,18 @@ std::ostream& operator<<(std::ostream& os, TokenType tokenType) {
 		break;
 	case TokenType::Mod:
 		os << "%";
+		break;
+	case TokenType::PlusDot:
+		os << "+.";
+		break;
+	case TokenType::MinusDot:
+		os << "-.";
+		break;
+	case TokenType::MulDot:
+		os << "*.";
+		break;
+	case TokenType::DivDot:
+		os << "/.";
 		break;
 	case TokenType::LeftParen:
 		os << "(";

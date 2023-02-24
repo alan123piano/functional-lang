@@ -7,11 +7,15 @@ class EFloatLit : public Expr {
 public:
 	long long value;
 
-	EFloatLit(const Location& loc, const Type* typeAnn, long long value)
-		: Expr(loc, typeAnn), value(value) {}
+	EFloatLit(const Location& loc, long long value)
+		: Expr(loc), value(value) {}
+
+	void print(std::ostream& os) const override {
+		os << value;
+	}
 
 	Expr* copy() const override {
-		return new EFloatLit(loc, typeAnn, value);
+		return new EFloatLit(loc, value);
 	}
 
 	Expr* subst(const std::string& subIdent, const Expr* subExpr) const override {
@@ -28,9 +32,5 @@ public:
 
 	bool type_ana(const Type* type, const Context<const Type*>& typeCtx) const override {
 		return type_syn(typeCtx, false) == type;
-	}
-
-	void print_impl(std::ostream& os) const override {
-		os << value;
 	}
 };
